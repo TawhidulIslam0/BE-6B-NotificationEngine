@@ -1,0 +1,309 @@
+openapi: 3.0.3
+info:
+  title: Notification Engine Internal API
+  version: 1.0.0
+  description: Internal API contracts for event ingestion, notification operations, DLQ management, analytics and health checks.
+
+servers:
+  - url: http://localhost:3000
+
+tags:
+  - name: Events
+  - name: Preferences
+  - name: Notifications
+  - name: DLQ
+  - name: Analytics
+  - name: Health
+
+paths:
+  /api/v1/events:
+    post:
+      tags: [Events]
+      summary: Publish a notification event
+      operationId: publishEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationEvent'
+      responses:
+        '202':
+          description: Event accepted for asynchronous processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventAccepted'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /api/v1/users/{userId}/preferences:
+    get:
+      tags: [Preferences]
+      summary: Get effective notification preferences
+      operationId: getUserPreferences
+      parameters:
+        - {$ref: '#/components/parameters/UserId'}
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '404': {$ref: '#/components/responses/NotFound'}
+    put:
+      tags: [Preferences]
+      summary: Update user notification preferences
+      operationId: updateUserPreferences
+      parameters:
+        - {$ref: '#/components/parameters/UserId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferencesUpdate'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/v1/notifications/{notificationId}:
+    get:
+      tags: [Notifications]
+      summary: Get notification delivery state
+      operationId: getNotification
+      parameters:
+        - {$ref: '#/components/parameters/NotificationId'}
+      responses:
+        '200':
+          description: Notification state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/v1/dlq:
+    get:
+      tags: [DLQ]
+      summary: List dead-letter records
+      operationId: listDlq
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [pending, retried, discarded]}}
+        - {name: eventType, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200':
+          description: DLQ records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/DlqRecord'}
+                  total: {type: integer}
+    post:
+      tags: [DLQ]
+      summary: Retry a DLQ record
+      operationId: retryDlq
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recordId]
+              properties:
+                recordId: {type: string}
+      responses:
+        '202': {description: DLQ record queued for retry}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/v1/dlq/{recordId}/discard:
+    post:
+      tags: [DLQ]
+      summary: Discard a DLQ record
+      operationId: discardDlq
+      parameters:
+        - {name: recordId, in: path, required: true, schema: {type: string}}
+      responses:
+        '204': {description: Record discarded}
+        '404': {$ref: '#/components/responses/NotFound'}
+
+  /api/v1/analytics/delivery-rates:
+    get:
+      tags: [Analytics]
+      summary: Get delivery rates
+      operationId: getDeliveryRates
+      parameters:
+        - {name: from, in: query, required: true, schema: {type: string, format: date-time}}
+        - {name: to, in: query, required: true, schema: {type: string, format: date-time}}
+      responses:
+        '200':
+          description: Delivery rate analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryRates'
+
+  /api/v1/analytics/channel-performance:
+    get:
+      tags: [Analytics]
+      summary: Get channel performance
+      operationId: getChannelPerformance
+      responses:
+        '200':
+          description: Channel performance metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {$ref: '#/components/schemas/ChannelMetric'}
+
+  /api/v1/analytics/opt-out-trends:
+    get:
+      tags: [Analytics]
+      summary: Get opt-out trends
+      operationId: getOptOutTrends
+      responses:
+        '200':
+          description: Opt-out trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [date, count]
+                  properties:
+                    date: {type: string, format: date}
+                    count: {type: integer}
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness health check
+      responses:
+        '200': {description: Service is alive}
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness check
+      responses:
+        '200': {description: Dependencies are ready}
+        '503': {description: One or more dependencies are unavailable}
+
+components:
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: {type: string}
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: {type: string}
+
+  responses:
+    BadRequest:
+      description: Invalid request
+    Unauthorized:
+      description: Authentication required
+    NotFound:
+      description: Resource not found
+    RateLimited:
+      description: Rate limit exceeded
+
+  schemas:
+    NotificationEvent:
+      type: object
+      required: [eventId, eventType, eventVersion, occurredAt, userId, correlationId, source, payload]
+      properties:
+        eventId: {type: string}
+        eventType: {type: string}
+        eventVersion: {type: string}
+        occurredAt: {type: string, format: date-time}
+        userId: {type: string}
+        correlationId: {type: string}
+        source: {type: string}
+        priority: {type: string, enum: [low, normal, high, critical]}
+        payload: {type: object, additionalProperties: true}
+
+    EventAccepted:
+      type: object
+      required: [eventId, status]
+      properties:
+        eventId: {type: string}
+        status: {type: string, enum: [accepted]}
+
+    UserPreferences:
+      type: object
+      properties:
+        channels:
+          type: object
+          additionalProperties: {type: boolean}
+        language: {type: string}
+        timezone: {type: string}
+        quietHours:
+          type: object
+          properties:
+            enabled: {type: boolean}
+            start: {type: string}
+            end: {type: string}
+
+    UserPreferencesUpdate:
+      allOf:
+        - $ref: '#/components/schemas/UserPreferences'
+
+    Notification:
+      type: object
+      required: [id, userId, eventType, status]
+      properties:
+        id: {type: string}
+        userId: {type: string}
+        eventType: {type: string}
+        status: {type: string}
+        channel: {type: string}
+        provider: {type: string}
+        createdAt: {type: string, format: date-time}
+        deliveredAt: {type: string, format: date-time, nullable: true}
+
+    DlqRecord:
+      type: object
+      required: [id, eventId, eventType, status]
+      properties:
+        id: {type: string}
+        eventId: {type: string}
+        eventType: {type: string}
+        status: {type: string}
+        errorClass: {type: string}
+        attempts: {type: integer}
+        createdAt: {type: string, format: date-time}
+
+    DeliveryRates:
+      type: object
+      properties:
+        delivered: {type: integer}
+        failed: {type: integer}
+        rate: {type: number, format: float}
+
+    ChannelMetric:
+      type: object
+      properties:
+        sent: {type: integer}
+        delivered: {type: integer}
+        failed: {type: integer}
+        successRate: {type: number, format: float}
