@@ -9,6 +9,7 @@
 
     "strict": true,
     "noImplicitAny": true,
+    "types": ["node"],
 
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

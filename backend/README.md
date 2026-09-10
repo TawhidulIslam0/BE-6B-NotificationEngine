@@ -52,7 +52,7 @@ docker compose ps
 
 Expected services:
 
-- PostgreSQL: `localhost:5432`
+- PostgreSQL: `localhost:15432`
 - Redis: `localhost:6379`
 - Kafka: `localhost:9092`
 - RabbitMQ: `localhost:5672`

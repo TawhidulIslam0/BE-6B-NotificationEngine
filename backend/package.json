@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "db:migrate": "knex --knexfile knexfile.cjs migrate:latest",
+    "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback",
+    "db:seed": "tsx scripts/seed-users.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
@@ -12,7 +15,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "echo \"Tests not configured yet\""
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -22,17 +25,23 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.5.0",
+    "@types/pg": "^8.23.1",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.9.6",
+    "ts-node": "^10.9.2",
     "tsx": "^4.23.13",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.0"
   },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "helmet": "^8.3.0"
+    "helmet": "^8.3.0",
+    "knex": "^3.3.0",
+    "pg": "^8.23.0",
+    "zod": "^4.6.0"
   }
 }
