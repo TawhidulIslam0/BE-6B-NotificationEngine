@@ -1,6 +1,7 @@
 /* global exports */
 
-const monthStart = (year, month) => `${year}-${String(month).padStart(2, '0')}-01`;
+const monthStart = (year, month) =>
+  `${year}-${String(month).padStart(2, '0')}-01`;
 
 exports.up = async function up(knex) {
   await knex.raw('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
@@ -11,8 +12,14 @@ exports.up = async function up(knex) {
     table.string('phone', 32).unique();
     table.string('timezone', 64).notNullable().defaultTo('UTC');
     table.boolean('is_active').notNullable().defaultTo(true);
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
+    table
+      .timestamp('updated_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
   });
 
   await knex.raw(`
@@ -37,11 +44,16 @@ exports.up = async function up(knex) {
   for (const year of [currentYear, currentYear + 1]) {
     for (let month = 1; month <= 12; month += 1) {
       const start = monthStart(year, month);
-      const end = month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
-      await knex.raw(`CREATE TABLE notifications_${year}_${String(month).padStart(2, '0')} PARTITION OF notifications FOR VALUES FROM ('${start}') TO ('${end}')`);
+      const end =
+        month === 12 ? monthStart(year + 1, 1) : monthStart(year, month + 1);
+      await knex.raw(
+        `CREATE TABLE notifications_${year}_${String(month).padStart(2, '0')} PARTITION OF notifications FOR VALUES FROM ('${start}') TO ('${end}')`,
+      );
     }
   }
-  await knex.raw('CREATE TABLE notifications_default PARTITION OF notifications DEFAULT');
+  await knex.raw(
+    'CREATE TABLE notifications_default PARTITION OF notifications DEFAULT',
+  );
 
   await knex.schema.createTable('notification_state_log', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
@@ -50,20 +62,38 @@ exports.up = async function up(knex) {
     table.string('from_state', 32);
     table.string('to_state', 32).notNullable();
     table.jsonb('metadata').notNullable().defaultTo('{}');
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    table.foreign(['notification_id', 'notification_created_at']).references(['id', 'created_at']).inTable('notifications').onDelete('CASCADE');
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
+    table
+      .foreign(['notification_id', 'notification_created_at'])
+      .references(['id', 'created_at'])
+      .inTable('notifications')
+      .onDelete('CASCADE');
   });
 
   await knex.schema.createTable('user_preferences', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('channel', 32).notNullable();
     table.boolean('enabled').notNullable().defaultTo(true);
     table.string('quiet_hours_start', 5);
     table.string('quiet_hours_end', 5);
     table.jsonb('event_types').notNullable().defaultTo('[]');
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    table.timestamp('updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
+    table
+      .timestamp('updated_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table.unique(['user_id', 'channel']);
   });
 
@@ -76,7 +106,10 @@ exports.up = async function up(knex) {
     table.text('subject');
     table.text('body').notNullable();
     table.boolean('is_active').notNullable().defaultTo(true);
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table.unique(['event_type', 'channel', 'locale', 'version']);
   });
 
@@ -87,17 +120,28 @@ exports.up = async function up(knex) {
     table.integer('priority').notNullable().defaultTo(100);
     table.boolean('is_active').notNullable().defaultTo(true);
     table.jsonb('configuration').notNullable().defaultTo('{}');
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table.unique(['channel', 'name']);
   });
 
   await knex.schema.createTable('consent_records', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('gen_random_uuid()'));
-    table.uuid('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('purpose', 64).notNullable();
     table.string('channel', 32).notNullable();
     table.boolean('granted').notNullable();
-    table.timestamp('recorded_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('recorded_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table.timestamp('revoked_at', { useTz: true });
     table.index(['user_id', 'purpose', 'channel']);
   });
@@ -111,17 +155,32 @@ exports.up = async function up(knex) {
     table.integer('retry_count').notNullable().defaultTo(0);
     table.string('status', 32).notNullable().defaultTo('pending');
     table.timestamp('next_retry_at', { useTz: true });
-    table.timestamp('created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp('created_at', { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table.timestamp('resolved_at', { useTz: true });
     table.index(['status', 'next_retry_at']);
   });
 
-  await knex.raw('CREATE INDEX notifications_user_created_at_idx ON notifications (user_id, created_at DESC)');
-  await knex.raw('CREATE INDEX notifications_status_created_at_idx ON notifications (status, created_at DESC)');
-  await knex.raw('CREATE INDEX notifications_event_type_created_at_idx ON notifications (event_type, created_at DESC)');
-  await knex.raw('CREATE INDEX notification_state_log_notification_idx ON notification_state_log (notification_id, notification_created_at, created_at DESC)');
-  await knex.raw('CREATE INDEX templates_lookup_idx ON templates (event_type, channel, locale) WHERE is_active = true');
-  await knex.raw('CREATE INDEX delivery_providers_channel_idx ON delivery_providers (channel, priority) WHERE is_active = true');
+  await knex.raw(
+    'CREATE INDEX notifications_user_created_at_idx ON notifications (user_id, created_at DESC)',
+  );
+  await knex.raw(
+    'CREATE INDEX notifications_status_created_at_idx ON notifications (status, created_at DESC)',
+  );
+  await knex.raw(
+    'CREATE INDEX notifications_event_type_created_at_idx ON notifications (event_type, created_at DESC)',
+  );
+  await knex.raw(
+    'CREATE INDEX notification_state_log_notification_idx ON notification_state_log (notification_id, notification_created_at, created_at DESC)',
+  );
+  await knex.raw(
+    'CREATE INDEX templates_lookup_idx ON templates (event_type, channel, locale) WHERE is_active = true',
+  );
+  await knex.raw(
+    'CREATE INDEX delivery_providers_channel_idx ON delivery_providers (channel, priority) WHERE is_active = true',
+  );
   await knex.raw('CREATE INDEX users_active_idx ON users (is_active)');
 };
 

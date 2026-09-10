@@ -12,27 +12,59 @@ const userWelcome = z.object({ name: requiredText });
 const userEmailVerified = z.object({ email });
 const userPhoneVerified = z.object({ phone: requiredText });
 const passwordChanged = z.object({ changedAt: timestamp });
-const passwordReset = z.object({ resetUrl: z.string().url(), expiresAt: timestamp });
-const loginNewDevice = z.object({ deviceId: requiredText, ipAddress: requiredText, userAgent: requiredText });
-const accountLocked = z.object({ reason: requiredText, lockedUntil: timestamp.optional() });
+const passwordReset = z.object({
+  resetUrl: z.string().url(),
+  expiresAt: timestamp,
+});
+const loginNewDevice = z.object({
+  deviceId: requiredText,
+  ipAddress: requiredText,
+  userAgent: requiredText,
+});
+const accountLocked = z.object({
+  reason: requiredText,
+  lockedUntil: timestamp.optional(),
+});
 const accountUnlocked = z.object({ unlockedAt: timestamp });
 const transaction = z.object({ transactionId: requiredText, amount, currency });
 const transactionFailed = transaction.extend({ reason: requiredText });
-const transactionReversed = transaction.extend({ reversalReason: requiredText });
+const transactionReversed = transaction.extend({
+  reversalReason: requiredText,
+});
 const payment = z.object({ paymentId: requiredText, amount, currency });
 const paymentFailed = payment.extend({ reason: requiredText });
 const paymentRefunded = payment.extend({ refundedAmount: amount });
 const order = z.object({ orderId: requiredText });
-const orderShipped = order.extend({ trackingNumber: requiredText, carrier: requiredText });
-const subscription = z.object({ subscriptionId: requiredText, plan: requiredText });
+const orderShipped = order.extend({
+  trackingNumber: requiredText,
+  carrier: requiredText,
+});
+const subscription = z.object({
+  subscriptionId: requiredText,
+  plan: requiredText,
+});
 const renewalDue = subscription.extend({ dueAt: timestamp });
 const subscriptionPaymentFailed = subscription.extend({ reason: requiredText });
-const suspiciousActivity = z.object({ activity: requiredText, ipAddress: requiredText, riskScore: z.number().min(0).max(100) });
+const suspiciousActivity = z.object({
+  activity: requiredText,
+  ipAddress: requiredText,
+  riskScore: z.number().min(0).max(100),
+});
 const mfa = z.object({ method: requiredText });
-const promotion = z.object({ promotionId: requiredText, title: requiredText, expiresAt: timestamp.optional() });
-const maintenance = z.object({ message: requiredText, startsAt: timestamp.optional(), endsAt: timestamp.optional() });
+const promotion = z.object({
+  promotionId: requiredText,
+  title: requiredText,
+  expiresAt: timestamp.optional(),
+});
+const maintenance = z.object({
+  message: requiredText,
+  startsAt: timestamp.optional(),
+  endsAt: timestamp.optional(),
+});
 
-export const payloadSchemas: { [T in EventType]: z.ZodType<EventPayloadMap[T]> } = {
+export const payloadSchemas: {
+  [T in EventType]: z.ZodType<EventPayloadMap[T]>;
+} = {
   'user.registered': userRegistered,
   'user.welcome': userWelcome,
   'user.email_verified': userEmailVerified,
@@ -69,6 +101,9 @@ export const payloadSchemas: { [T in EventType]: z.ZodType<EventPayloadMap[T]> }
   'system.maintenance_completed': maintenance,
 };
 
-export function validatePayload<T extends EventType>(eventType: T, payload: unknown): EventPayloadMap[T] {
+export function validatePayload<T extends EventType>(
+  eventType: T,
+  payload: unknown,
+): EventPayloadMap[T] {
   return payloadSchemas[eventType].parse(payload);
 }

@@ -252,11 +252,11 @@ Rel(deliveryTracker, postgres, "Stores delivery state")
 
 ## 8. Kafka Topics
 
-| Topic | Purpose |
-|---|---|
-| `notification-events` | Normal notification events |
+| Topic                   | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `notification-events`   | Normal notification events                 |
 | `notification-critical` | High-priority/critical notification events |
-| `notification-dlq` | Exhausted or unrecoverable events |
+| `notification-dlq`      | Exhausted or unrecoverable events          |
 
 Consumers use consumer groups and manual offset commits for at-least-once
 processing.
@@ -326,21 +326,21 @@ dependencies.
 
 ## 14. Technology Decisions
 
-| Technology | Purpose | Justification |
-|---|---|---|
-| Node.js | Backend runtime | Strong asynchronous I/O model for event-driven workloads |
-| TypeScript | Backend language | Compile-time type safety and maintainability |
-| Express | API framework | Lightweight HTTP framework for internal APIs |
-| React + Vite | Operations dashboard | Fast component-based operational UI |
-| PostgreSQL | Durable database | Relational integrity and durable transactional state |
-| Redis | Cache/state | Low-latency caching, counters and deduplication |
-| Kafka | Event backbone | Durable streaming, consumer groups and partition-based scaling |
-| RabbitMQ | Supporting queues | Queue semantics for background work |
-| Zod | Runtime validation | Type-safe runtime schema validation |
-| Handlebars | Templates | Dynamic notification rendering |
+| Technology     | Purpose              | Justification                                                        |
+| -------------- | -------------------- | -------------------------------------------------------------------- |
+| Node.js        | Backend runtime      | Strong asynchronous I/O model for event-driven workloads             |
+| TypeScript     | Backend language     | Compile-time type safety and maintainability                         |
+| Express        | API framework        | Lightweight HTTP framework for internal APIs                         |
+| React + Vite   | Operations dashboard | Fast component-based operational UI                                  |
+| PostgreSQL     | Durable database     | Relational integrity and durable transactional state                 |
+| Redis          | Cache/state          | Low-latency caching, counters and deduplication                      |
+| Kafka          | Event backbone       | Durable streaming, consumer groups and partition-based scaling       |
+| RabbitMQ       | Supporting queues    | Queue semantics for background work                                  |
+| Zod            | Runtime validation   | Type-safe runtime schema validation                                  |
+| Handlebars     | Templates            | Dynamic notification rendering                                       |
 | Docker Compose | Local infrastructure | Reproducible local PostgreSQL, Redis, Kafka and RabbitMQ environment |
-| ESLint | Static analysis | TypeScript/JavaScript quality enforcement |
-| Prettier | Formatting | Consistent source formatting |
+| ESLint         | Static analysis      | TypeScript/JavaScript quality enforcement                            |
+| Prettier       | Formatting           | Consistent source formatting                                         |
 
 ## 15. API Contract Strategy
 

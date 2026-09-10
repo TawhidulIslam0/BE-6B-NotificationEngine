@@ -1,47 +1,217 @@
-version: "1.0"
-description: "Notification Engine event taxonomy. All events share the common envelope fields."
+version: '1.0'
+description: 'Notification Engine event taxonomy. All events share the common envelope fields.'
 
 common_fields:
-  event_id: {type: string, required: true}
-  event_type: {type: string, required: true}
-  event_version: {type: string, required: true}
-  occurred_at: {type: string, format: date-time, required: true}
-  user_id: {type: string, required: true}
-  correlation_id: {type: string, required: true}
-  source: {type: string, required: true}
+  event_id: { type: string, required: true }
+  event_type: { type: string, required: true }
+  event_version: { type: string, required: true }
+  occurred_at: { type: string, format: date-time, required: true }
+  user_id: { type: string, required: true }
+  correlation_id: { type: string, required: true }
+  source: { type: string, required: true }
 
 events:
-  - {type: user.registered, category: account, priority: normal, description: "User completed registration"}
-  - {type: user.welcome, category: account, priority: normal, description: "Welcome notification event"}
-  - {type: user.email_verified, category: account, priority: normal, description: "Email address verified"}
-  - {type: user.phone_verified, category: account, priority: normal, description: "Phone number verified"}
-  - {type: user.password_changed, category: security, priority: high, description: "Password changed"}
-  - {type: user.password_reset_requested, category: security, priority: critical, description: "Password reset requested"}
-  - {type: user.login_new_device, category: security, priority: high, description: "Login from a new device"}
-  - {type: user.account_locked, category: security, priority: critical, description: "Account locked"}
-  - {type: user.account_unlocked, category: security, priority: high, description: "Account unlocked"}
-  - {type: transaction.created, category: transaction, priority: normal, description: "Transaction created"}
-  - {type: transaction.completed, category: transaction, priority: normal, description: "Transaction completed"}
-  - {type: transaction.failed, category: transaction, priority: high, description: "Transaction failed"}
-  - {type: transaction.reversed, category: transaction, priority: high, description: "Transaction reversed"}
-  - {type: payment.received, category: payment, priority: normal, description: "Payment received"}
-  - {type: payment.failed, category: payment, priority: high, description: "Payment failed"}
-  - {type: payment.refunded, category: payment, priority: normal, description: "Payment refunded"}
-  - {type: order.created, category: commerce, priority: normal, description: "Order created"}
-  - {type: order.confirmed, category: commerce, priority: normal, description: "Order confirmed"}
-  - {type: order.shipped, category: commerce, priority: normal, description: "Order shipped"}
-  - {type: order.delivered, category: commerce, priority: normal, description: "Order delivered"}
-  - {type: order.cancelled, category: commerce, priority: normal, description: "Order cancelled"}
-  - {type: subscription.started, category: subscription, priority: normal, description: "Subscription started"}
-  - {type: subscription.renewal_due, category: subscription, priority: normal, description: "Subscription renewal due"}
-  - {type: subscription.renewed, category: subscription, priority: normal, description: "Subscription renewed"}
-  - {type: subscription.cancelled, category: subscription, priority: normal, description: "Subscription cancelled"}
-  - {type: subscription.payment_failed, category: subscription, priority: high, description: "Subscription payment failed"}
-  - {type: security.suspicious_activity, category: security, priority: critical, description: "Suspicious activity detected"}
-  - {type: security.mfa_enabled, category: security, priority: high, description: "MFA enabled"}
-  - {type: security.mfa_disabled, category: security, priority: critical, description: "MFA disabled"}
-  - {type: promotion.available, category: marketing, priority: low, description: "Promotional offer available"}
-  - {type: promotion.expiring, category: marketing, priority: low, description: "Promotional offer expiring"}
-  - {type: system.maintenance_scheduled, category: system, priority: normal, description: "Maintenance scheduled"}
-  - {type: system.maintenance_started, category: system, priority: high, description: "Maintenance started"}
-  - {type: system.maintenance_completed, category: system, priority: normal, description: "Maintenance completed"}
+  - {
+      type: user.registered,
+      category: account,
+      priority: normal,
+      description: 'User completed registration',
+    }
+  - {
+      type: user.welcome,
+      category: account,
+      priority: normal,
+      description: 'Welcome notification event',
+    }
+  - {
+      type: user.email_verified,
+      category: account,
+      priority: normal,
+      description: 'Email address verified',
+    }
+  - {
+      type: user.phone_verified,
+      category: account,
+      priority: normal,
+      description: 'Phone number verified',
+    }
+  - {
+      type: user.password_changed,
+      category: security,
+      priority: high,
+      description: 'Password changed',
+    }
+  - {
+      type: user.password_reset_requested,
+      category: security,
+      priority: critical,
+      description: 'Password reset requested',
+    }
+  - {
+      type: user.login_new_device,
+      category: security,
+      priority: high,
+      description: 'Login from a new device',
+    }
+  - {
+      type: user.account_locked,
+      category: security,
+      priority: critical,
+      description: 'Account locked',
+    }
+  - {
+      type: user.account_unlocked,
+      category: security,
+      priority: high,
+      description: 'Account unlocked',
+    }
+  - {
+      type: transaction.created,
+      category: transaction,
+      priority: normal,
+      description: 'Transaction created',
+    }
+  - {
+      type: transaction.completed,
+      category: transaction,
+      priority: normal,
+      description: 'Transaction completed',
+    }
+  - {
+      type: transaction.failed,
+      category: transaction,
+      priority: high,
+      description: 'Transaction failed',
+    }
+  - {
+      type: transaction.reversed,
+      category: transaction,
+      priority: high,
+      description: 'Transaction reversed',
+    }
+  - {
+      type: payment.received,
+      category: payment,
+      priority: normal,
+      description: 'Payment received',
+    }
+  - {
+      type: payment.failed,
+      category: payment,
+      priority: high,
+      description: 'Payment failed',
+    }
+  - {
+      type: payment.refunded,
+      category: payment,
+      priority: normal,
+      description: 'Payment refunded',
+    }
+  - {
+      type: order.created,
+      category: commerce,
+      priority: normal,
+      description: 'Order created',
+    }
+  - {
+      type: order.confirmed,
+      category: commerce,
+      priority: normal,
+      description: 'Order confirmed',
+    }
+  - {
+      type: order.shipped,
+      category: commerce,
+      priority: normal,
+      description: 'Order shipped',
+    }
+  - {
+      type: order.delivered,
+      category: commerce,
+      priority: normal,
+      description: 'Order delivered',
+    }
+  - {
+      type: order.cancelled,
+      category: commerce,
+      priority: normal,
+      description: 'Order cancelled',
+    }
+  - {
+      type: subscription.started,
+      category: subscription,
+      priority: normal,
+      description: 'Subscription started',
+    }
+  - {
+      type: subscription.renewal_due,
+      category: subscription,
+      priority: normal,
+      description: 'Subscription renewal due',
+    }
+  - {
+      type: subscription.renewed,
+      category: subscription,
+      priority: normal,
+      description: 'Subscription renewed',
+    }
+  - {
+      type: subscription.cancelled,
+      category: subscription,
+      priority: normal,
+      description: 'Subscription cancelled',
+    }
+  - {
+      type: subscription.payment_failed,
+      category: subscription,
+      priority: high,
+      description: 'Subscription payment failed',
+    }
+  - {
+      type: security.suspicious_activity,
+      category: security,
+      priority: critical,
+      description: 'Suspicious activity detected',
+    }
+  - {
+      type: security.mfa_enabled,
+      category: security,
+      priority: high,
+      description: 'MFA enabled',
+    }
+  - {
+      type: security.mfa_disabled,
+      category: security,
+      priority: critical,
+      description: 'MFA disabled',
+    }
+  - {
+      type: promotion.available,
+      category: marketing,
+      priority: low,
+      description: 'Promotional offer available',
+    }
+  - {
+      type: promotion.expiring,
+      category: marketing,
+      priority: low,
+      description: 'Promotional offer expiring',
+    }
+  - {
+      type: system.maintenance_scheduled,
+      category: system,
+      priority: normal,
+      description: 'Maintenance scheduled',
+    }
+  - {
+      type: system.maintenance_started,
+      category: system,
+      priority: high,
+      description: 'Maintenance started',
+    }
+  - {
+      type: system.maintenance_completed,
+      category: system,
+      priority: normal,
+      description: 'Maintenance completed',
+    }

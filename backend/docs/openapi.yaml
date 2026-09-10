@@ -34,9 +34,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventAccepted'
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-        '429': {$ref: '#/components/responses/RateLimited'}
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 
   /api/v1/users/{userId}/preferences:
     get:
@@ -44,7 +44,7 @@ paths:
       summary: Get effective notification preferences
       operationId: getUserPreferences
       parameters:
-        - {$ref: '#/components/parameters/UserId'}
+        - { $ref: '#/components/parameters/UserId' }
       responses:
         '200':
           description: User preferences
@@ -52,13 +52,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPreferences'
-        '404': {$ref: '#/components/responses/NotFound'}
+        '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [Preferences]
       summary: Update user notification preferences
       operationId: updateUserPreferences
       parameters:
-        - {$ref: '#/components/parameters/UserId'}
+        - { $ref: '#/components/parameters/UserId' }
       requestBody:
         required: true
         content:
@@ -72,8 +72,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPreferences'
-        '400': {$ref: '#/components/responses/BadRequest'}
-        '404': {$ref: '#/components/responses/NotFound'}
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/notifications/{notificationId}:
     get:
@@ -81,7 +81,7 @@ paths:
       summary: Get notification delivery state
       operationId: getNotification
       parameters:
-        - {$ref: '#/components/parameters/NotificationId'}
+        - { $ref: '#/components/parameters/NotificationId' }
       responses:
         '200':
           description: Notification state
@@ -89,7 +89,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Notification'
-        '404': {$ref: '#/components/responses/NotFound'}
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/dlq:
     get:
@@ -97,9 +97,17 @@ paths:
       summary: List dead-letter records
       operationId: listDlq
       parameters:
-        - {name: status, in: query, schema: {type: string, enum: [pending, retried, discarded]}}
-        - {name: eventType, in: query, schema: {type: string}}
-        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [pending, retried, discarded] },
+          }
+        - { name: eventType, in: query, schema: { type: string } }
+        - {
+            name: limit,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
+          }
       responses:
         '200':
           description: DLQ records
@@ -110,8 +118,8 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: {$ref: '#/components/schemas/DlqRecord'}
-                  total: {type: integer}
+                    items: { $ref: '#/components/schemas/DlqRecord' }
+                  total: { type: integer }
     post:
       tags: [DLQ]
       summary: Retry a DLQ record
@@ -124,10 +132,10 @@ paths:
               type: object
               required: [recordId]
               properties:
-                recordId: {type: string}
+                recordId: { type: string }
       responses:
-        '202': {description: DLQ record queued for retry}
-        '404': {$ref: '#/components/responses/NotFound'}
+        '202': { description: DLQ record queued for retry }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/dlq/{recordId}/discard:
     post:
@@ -135,10 +143,10 @@ paths:
       summary: Discard a DLQ record
       operationId: discardDlq
       parameters:
-        - {name: recordId, in: path, required: true, schema: {type: string}}
+        - { name: recordId, in: path, required: true, schema: { type: string } }
       responses:
-        '204': {description: Record discarded}
-        '404': {$ref: '#/components/responses/NotFound'}
+        '204': { description: Record discarded }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/analytics/delivery-rates:
     get:
@@ -146,8 +154,18 @@ paths:
       summary: Get delivery rates
       operationId: getDeliveryRates
       parameters:
-        - {name: from, in: query, required: true, schema: {type: string, format: date-time}}
-        - {name: to, in: query, required: true, schema: {type: string, format: date-time}}
+        - {
+            name: from,
+            in: query,
+            required: true,
+            schema: { type: string, format: date-time },
+          }
+        - {
+            name: to,
+            in: query,
+            required: true,
+            schema: { type: string, format: date-time },
+          }
       responses:
         '200':
           description: Delivery rate analytics
@@ -168,7 +186,8 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: {$ref: '#/components/schemas/ChannelMetric'}
+                additionalProperties:
+                  { $ref: '#/components/schemas/ChannelMetric' }
 
   /api/v1/analytics/opt-out-trends:
     get:
@@ -186,23 +205,23 @@ paths:
                   type: object
                   required: [date, count]
                   properties:
-                    date: {type: string, format: date}
-                    count: {type: integer}
+                    date: { type: string, format: date }
+                    count: { type: integer }
 
   /health:
     get:
       tags: [Health]
       summary: Liveness health check
       responses:
-        '200': {description: Service is alive}
+        '200': { description: Service is alive }
 
   /ready:
     get:
       tags: [Health]
       summary: Readiness check
       responses:
-        '200': {description: Dependencies are ready}
-        '503': {description: One or more dependencies are unavailable}
+        '200': { description: Dependencies are ready }
+        '503': { description: One or more dependencies are unavailable }
 
 components:
   parameters:
@@ -210,12 +229,12 @@ components:
       name: userId
       in: path
       required: true
-      schema: {type: string}
+      schema: { type: string }
     NotificationId:
       name: notificationId
       in: path
       required: true
-      schema: {type: string}
+      schema: { type: string }
 
   responses:
     BadRequest:
@@ -230,39 +249,49 @@ components:
   schemas:
     NotificationEvent:
       type: object
-      required: [eventId, eventType, eventVersion, occurredAt, userId, correlationId, source, payload]
+      required:
+        [
+          eventId,
+          eventType,
+          eventVersion,
+          occurredAt,
+          userId,
+          correlationId,
+          source,
+          payload,
+        ]
       properties:
-        eventId: {type: string}
-        eventType: {type: string}
-        eventVersion: {type: string}
-        occurredAt: {type: string, format: date-time}
-        userId: {type: string}
-        correlationId: {type: string}
-        source: {type: string}
-        priority: {type: string, enum: [low, normal, high, critical]}
-        payload: {type: object, additionalProperties: true}
+        eventId: { type: string }
+        eventType: { type: string }
+        eventVersion: { type: string }
+        occurredAt: { type: string, format: date-time }
+        userId: { type: string }
+        correlationId: { type: string }
+        source: { type: string }
+        priority: { type: string, enum: [low, normal, high, critical] }
+        payload: { type: object, additionalProperties: true }
 
     EventAccepted:
       type: object
       required: [eventId, status]
       properties:
-        eventId: {type: string}
-        status: {type: string, enum: [accepted]}
+        eventId: { type: string }
+        status: { type: string, enum: [accepted] }
 
     UserPreferences:
       type: object
       properties:
         channels:
           type: object
-          additionalProperties: {type: boolean}
-        language: {type: string}
-        timezone: {type: string}
+          additionalProperties: { type: boolean }
+        language: { type: string }
+        timezone: { type: string }
         quietHours:
           type: object
           properties:
-            enabled: {type: boolean}
-            start: {type: string}
-            end: {type: string}
+            enabled: { type: boolean }
+            start: { type: string }
+            end: { type: string }
 
     UserPreferencesUpdate:
       allOf:
@@ -272,38 +301,38 @@ components:
       type: object
       required: [id, userId, eventType, status]
       properties:
-        id: {type: string}
-        userId: {type: string}
-        eventType: {type: string}
-        status: {type: string}
-        channel: {type: string}
-        provider: {type: string}
-        createdAt: {type: string, format: date-time}
-        deliveredAt: {type: string, format: date-time, nullable: true}
+        id: { type: string }
+        userId: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        channel: { type: string }
+        provider: { type: string }
+        createdAt: { type: string, format: date-time }
+        deliveredAt: { type: string, format: date-time, nullable: true }
 
     DlqRecord:
       type: object
       required: [id, eventId, eventType, status]
       properties:
-        id: {type: string}
-        eventId: {type: string}
-        eventType: {type: string}
-        status: {type: string}
-        errorClass: {type: string}
-        attempts: {type: integer}
-        createdAt: {type: string, format: date-time}
+        id: { type: string }
+        eventId: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        errorClass: { type: string }
+        attempts: { type: integer }
+        createdAt: { type: string, format: date-time }
 
     DeliveryRates:
       type: object
       properties:
-        delivered: {type: integer}
-        failed: {type: integer}
-        rate: {type: number, format: float}
+        delivered: { type: integer }
+        failed: { type: integer }
+        rate: { type: number, format: float }
 
     ChannelMetric:
       type: object
       properties:
-        sent: {type: integer}
-        delivered: {type: integer}
-        failed: {type: integer}
-        successRate: {type: number, format: float}
+        sent: { type: integer }
+        delivered: { type: integer }
+        failed: { type: integer }
+        successRate: { type: number, format: float }

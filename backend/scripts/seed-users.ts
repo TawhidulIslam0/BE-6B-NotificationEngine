@@ -1,7 +1,13 @@
 import { database } from '../src/infrastructure/postgres/client.js';
 
 const channels = ['email', 'sms', 'push', 'whatsapp', 'in-app'] as const;
-const timezones = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Dhaka', 'Asia/Tokyo'];
+const timezones = [
+  'UTC',
+  'America/New_York',
+  'Europe/London',
+  'Asia/Dhaka',
+  'Asia/Tokyo',
+];
 
 async function seedUsers(): Promise<void> {
   const users = Array.from({ length: 1000 }, (_, index) => ({
@@ -20,9 +26,14 @@ async function seedUsers(): Promise<void> {
       enabled: index % 7 !== 0,
       quiet_hours_start: index % 3 === 0 ? '22:00' : null,
       quiet_hours_end: index % 3 === 0 ? '07:00' : null,
-      event_types: JSON.stringify(index % 2 === 0 ? ['user.welcome', 'order.shipped'] : []),
+      event_types: JSON.stringify(
+        index % 2 === 0 ? ['user.welcome', 'order.shipped'] : [],
+      ),
     }));
-    await transaction('user_preferences').insert(preferences).onConflict(['user_id', 'channel']).ignore();
+    await transaction('user_preferences')
+      .insert(preferences)
+      .onConflict(['user_id', 'channel'])
+      .ignore();
   });
 
   await database.destroy();
