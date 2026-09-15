@@ -1,19 +1,9 @@
-export type DndClassification =
-  | 'TRANSACTIONAL'
-  | 'PROMOTIONAL';
+export type DndClassification = 'TRANSACTIONAL' | 'PROMOTIONAL';
 
-export type ConsentStatus =
-  | 'OPTED_IN'
-  | 'OPTED_OUT';
+export type ConsentStatus = 'OPTED_IN' | 'OPTED_OUT';
 
 export type ConsentChannel =
-  | 'sms'
-  | 'email'
-  | 'push'
-  | 'whatsapp'
-  | 'in-app'
-  | 'ivr'
-  | 'webhook';
+  'sms' | 'email' | 'push' | 'whatsapp' | 'in-app' | 'ivr' | 'webhook';
 
 export interface DndRegistryEntry {
   userId: string;

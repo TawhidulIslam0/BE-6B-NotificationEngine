@@ -4,19 +4,13 @@ import {
   EventRouter,
   type RoutingDecision,
 } from '../events/routing/event-router.js';
-import type {
-  PreferenceChannel,
-  UserPreferences,
-} from './types.js';
+import type { PreferenceChannel, UserPreferences } from './types.js';
 
-function toRoutingPreferences(
-  preferences: UserPreferences,
-): UserPreference[] {
+function toRoutingPreferences(preferences: UserPreferences): UserPreference[] {
   return Object.entries(preferences.channels)
     .filter(
       ([, channelPreference]) =>
-        channelPreference.enabled &&
-        channelPreference.mode === 'immediate',
+        channelPreference.enabled && channelPreference.mode === 'immediate',
     )
     .map(([channel]) => {
       const eventTypes = Object.entries(preferences.categories)
@@ -37,10 +31,7 @@ function minutesFromTime(value: string): number {
   return hours * 60 + minutes;
 }
 
-function currentMinutesInTimezone(
-  timezone: string,
-  now: Date,
-): number {
+function currentMinutesInTimezone(timezone: string, now: Date): number {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     hour: '2-digit',
@@ -50,9 +41,7 @@ function currentMinutesInTimezone(
 
   const parts = formatter.formatToParts(now);
 
-  const hour = Number(
-    parts.find((part) => part.type === 'hour')?.value ?? 0,
-  );
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0);
 
   const minute = Number(
     parts.find((part) => part.type === 'minute')?.value ?? 0,
@@ -71,10 +60,7 @@ export function isWithinQuietHours(
     return false;
   }
 
-  const current = currentMinutesInTimezone(
-    preferences.timezone,
-    now,
-  );
+  const current = currentMinutesInTimezone(preferences.timezone, now);
 
   const start = minutesFromTime(quietHours.start);
   const end = minutesFromTime(quietHours.end);
@@ -97,20 +83,11 @@ export class PreferenceRoutingAdapter {
     private readonly now = () => new Date(),
   ) {}
 
-  route(
-    event: EventEnvelope,
-    preferences: UserPreferences,
-  ): RoutingDecision {
-    const quietHoursActive = isWithinQuietHours(
-      preferences,
-      this.now(),
-    );
+  route(event: EventEnvelope, preferences: UserPreferences): RoutingDecision {
+    const quietHoursActive = isWithinQuietHours(preferences, this.now());
 
     // Critical notifications bypass quiet hours.
-    if (
-      quietHoursActive &&
-      event.priority !== 'critical'
-    ) {
+    if (quietHoursActive && event.priority !== 'critical') {
       return {
         channels: [],
         reason: 'user-preference',

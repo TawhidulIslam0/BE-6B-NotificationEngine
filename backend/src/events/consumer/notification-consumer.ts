@@ -7,10 +7,7 @@ import {
   type EnrichedEvent,
 } from '../enrichment/event-enricher.js';
 import { deserializeEvent } from '../serialization/event-serializer.js';
-import {
-  EventRouter,
-  type RoutingDecision,
-} from '../routing/event-router.js';
+import { EventRouter, type RoutingDecision } from '../routing/event-router.js';
 import type { PreferenceService } from '../../preferences/service.js';
 import {
   DigestService,
@@ -38,13 +35,9 @@ export interface ProcessedDigest {
   routing: RoutingDecision;
 }
 
-export type EventHandler = (
-  result: ProcessedEvent,
-) => Promise<void>;
+export type EventHandler = (result: ProcessedEvent) => Promise<void>;
 
-export type DigestHandler = (
-  result: ProcessedDigest,
-) => Promise<void>;
+export type DigestHandler = (result: ProcessedDigest) => Promise<void>;
 
 export class NotificationConsumer {
   private readonly consumer: Consumer;
@@ -56,9 +49,7 @@ export class NotificationConsumer {
     private readonly router = new EventRouter(),
     consumer = createConsumer(),
     private readonly preferenceService?: PreferenceService,
-    digestService = new DigestService(
-      new InMemoryDigestBatchStore(),
-    ),
+    digestService = new DigestService(new InMemoryDigestBatchStore()),
   ) {
     this.consumer = consumer;
     this.digestService = digestService;
@@ -96,9 +87,7 @@ export class NotificationConsumer {
           let preferences: UserPreferences | undefined;
 
           if (this.preferenceService) {
-            preferences = await this.preferenceService.get(
-              event.user_id,
-            );
+            preferences = await this.preferenceService.get(event.user_id);
 
             routing = this.router.route(
               event.event_type,
@@ -119,8 +108,7 @@ export class NotificationConsumer {
               : this.getDigestChannels(preferences);
 
           const shouldQueueDigest =
-            event.priority === 'low' &&
-            digestChannels.length > 0;
+            event.priority === 'low' && digestChannels.length > 0;
 
           if (shouldQueueDigest) {
             for (const channel of digestChannels) {
@@ -134,9 +122,7 @@ export class NotificationConsumer {
                 createdAt: event.occurred_at,
               };
 
-              await this.digestService.add(
-                digestNotification,
-              );
+              await this.digestService.add(digestNotification);
             }
 
             await handler({
@@ -162,9 +148,7 @@ export class NotificationConsumer {
           {
             topic: payload.topic,
             partition: payload.partition,
-            offset: (
-              BigInt(payload.message.offset) + 1n
-            ).toString(),
+            offset: (BigInt(payload.message.offset) + 1n).toString(),
           },
         ]);
       },
@@ -176,10 +160,7 @@ export class NotificationConsumer {
     channel: PreferenceChannel,
     handler: DigestHandler,
   ): Promise<boolean> {
-    const digest = await this.digestService.flush(
-      userId,
-      channel,
-    );
+    const digest = await this.digestService.flush(userId, channel);
 
     if (!digest) {
       return false;
@@ -202,27 +183,19 @@ export class NotificationConsumer {
     await this.consumer.disconnect();
   }
 
-  private getDigestChannels(
-    preferences: UserPreferences,
-  ): PreferenceChannel[] {
+  private getDigestChannels(preferences: UserPreferences): PreferenceChannel[] {
     return Object.entries(preferences.channels)
       .filter(
-        ([, preference]) =>
-          preference.enabled &&
-          preference.mode === 'digest',
+        ([, preference]) => preference.enabled && preference.mode === 'digest',
       )
       .map(([channel]) => channel as PreferenceChannel);
   }
 
-  private getDigestTitle(
-    event: ReturnType<typeof deserializeEvent>,
-  ): string {
+  private getDigestTitle(event: ReturnType<typeof deserializeEvent>): string {
     return `Notification digest: ${event.event_type}`;
   }
 
-  private getDigestBody(
-    event: ReturnType<typeof deserializeEvent>,
-  ): string {
+  private getDigestBody(event: ReturnType<typeof deserializeEvent>): string {
     return JSON.stringify(event.payload);
   }
 }

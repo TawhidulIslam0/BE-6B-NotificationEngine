@@ -35,9 +35,7 @@ describe('DND registry service', () => {
       source: 'simulated-dnd-database',
     });
 
-    expect(
-      await service.lookup('user-2'),
-    ).toMatchObject({
+    expect(await service.lookup('user-2')).toMatchObject({
       isRegistered: false,
     });
   });
@@ -48,8 +46,6 @@ describe('DND registry service', () => {
     await service.lookup('dnd-user-001');
     service.invalidate('dnd-user-001');
 
-    expect(
-      await service.lookup('dnd-user-001'),
-    ).not.toBeNull();
+    expect(await service.lookup('dnd-user-001')).not.toBeNull();
   });
 });

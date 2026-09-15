@@ -4,10 +4,7 @@ export class ComplianceAuditService {
   private readonly entries: ComplianceAuditEntry[] = [];
 
   record(
-    entry: Omit<
-      ComplianceAuditEntry,
-      'id' | 'recordedAt'
-    >,
+    entry: Omit<ComplianceAuditEntry, 'id' | 'recordedAt'>,
   ): ComplianceAuditEntry {
     const auditEntry: ComplianceAuditEntry = {
       ...entry,
@@ -25,8 +22,6 @@ export class ComplianceAuditService {
   }
 
   findByUser(userId: string): ComplianceAuditEntry[] {
-    return this.entries.filter(
-      (entry) => entry.userId === userId,
-    );
+    return this.entries.filter((entry) => entry.userId === userId);
   }
 }

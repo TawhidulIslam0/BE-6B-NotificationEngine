@@ -1,14 +1,7 @@
-import type {
-  ConsentChannel,
-  ConsentRecord,
-  ConsentStatus,
-} from './types.js';
+import type { ConsentChannel, ConsentRecord, ConsentStatus } from './types.js';
 
 export class ConsentService {
-  private readonly current = new Map<
-    string,
-    ConsentRecord
-  >();
+  private readonly current = new Map<string, ConsentRecord>();
 
   private readonly auditLog: ConsentRecord[] = [];
 
@@ -34,17 +27,11 @@ export class ConsentService {
     return record;
   }
 
-  get(
-    userId: string,
-    channel: ConsentChannel,
-  ): ConsentRecord | undefined {
+  get(userId: string, channel: ConsentChannel): ConsentRecord | undefined {
     return this.current.get(`${userId}:${channel}`);
   }
 
-  hasConsent(
-    userId: string,
-    channel: ConsentChannel,
-  ): boolean {
+  hasConsent(userId: string, channel: ConsentChannel): boolean {
     return this.get(userId, channel)?.status === 'OPTED_IN';
   }
 

@@ -20,11 +20,7 @@ export class DndClassificationService {
   classify(eventType: string): DndClassification {
     const normalized = eventType.toLowerCase();
 
-    if (
-      transactionalPatterns.some((pattern) =>
-        normalized.includes(pattern),
-      )
-    ) {
+    if (transactionalPatterns.some((pattern) => normalized.includes(pattern))) {
       return 'TRANSACTIONAL';
     }
 

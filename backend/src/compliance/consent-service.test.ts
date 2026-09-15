@@ -5,11 +5,7 @@ describe('Consent service', () => {
   it('records opt-in consent', () => {
     const service = new ConsentService();
 
-    const record = service.record(
-      'user-1',
-      'sms',
-      'OPTED_IN',
-    );
+    const record = service.record('user-1', 'sms', 'OPTED_IN');
 
     expect(record.status).toBe('OPTED_IN');
     expect(service.hasConsent('user-1', 'sms')).toBe(true);

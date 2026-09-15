@@ -15,18 +15,12 @@ export interface MorningDigest {
 }
 
 export class QuietHoursService {
-  isWithinQuietHours(
-    date: Date,
-    quietHours: QuietHours,
-  ): QuietHoursResult {
+  isWithinQuietHours(date: Date, quietHours: QuietHours): QuietHoursResult {
     if (!quietHours.enabled) {
       return { quiet: false };
     }
 
-    const current = this.getMinutesInTimezone(
-      date,
-      quietHours.timezone,
-    );
+    const current = this.getMinutesInTimezone(date, quietHours.timezone);
 
     const start = this.toMinutes(quietHours.start);
     const end = this.toMinutes(quietHours.end);
@@ -48,10 +42,8 @@ export class QuietHoursService {
       return false;
     }
 
-    return this.isWithinQuietHours(
-      new Date(notification.createdAt),
-      quietHours,
-    ).quiet;
+    return this.isWithinQuietHours(new Date(notification.createdAt), quietHours)
+      .quiet;
   }
 
   private toMinutes(value: string): number {
@@ -71,10 +63,7 @@ export class QuietHoursService {
     return hours * 60 + minutes;
   }
 
-  private getMinutesInTimezone(
-    date: Date,
-    timezone: string,
-  ): number {
+  private getMinutesInTimezone(date: Date, timezone: string): number {
     try {
       const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
@@ -85,9 +74,7 @@ export class QuietHoursService {
 
       const parts = formatter.formatToParts(date);
 
-      const hour = Number(
-        parts.find((part) => part.type === 'hour')?.value,
-      );
+      const hour = Number(parts.find((part) => part.type === 'hour')?.value);
 
       const minute = Number(
         parts.find((part) => part.type === 'minute')?.value,
@@ -105,10 +92,7 @@ export class QuietHoursService {
 }
 
 export class QuietHoursQueue {
-  private readonly queue = new Map<
-    string,
-    QuietHoursNotification[]
-  >();
+  private readonly queue = new Map<string, QuietHoursNotification[]>();
 
   add(notification: QuietHoursNotification): void {
     const existing = this.queue.get(notification.userId) ?? [];
@@ -129,9 +113,7 @@ export class QuietHoursQueue {
     return this.queue.get(userId)?.length ?? 0;
   }
 
-  createMorningDigest(
-    userId: string,
-  ): MorningDigest | undefined {
+  createMorningDigest(userId: string): MorningDigest | undefined {
     const notifications = this.flush(userId);
 
     if (notifications.length === 0) {
@@ -150,9 +132,7 @@ export class QuietHoursQueue {
             `${index + 1}. ${notification.title}: ${notification.body}`,
         )
         .join('\n'),
-      notificationIds: notifications.map(
-        (notification) => notification.id,
-      ),
+      notificationIds: notifications.map((notification) => notification.id),
       createdAt: new Date().toISOString(),
       priority: notifications.some(
         (notification) => notification.priority === 'high',

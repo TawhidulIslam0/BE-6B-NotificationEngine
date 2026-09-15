@@ -9,7 +9,6 @@ import type {
 } from '../compliance/index.js';
 import { DndClassificationService } from '../compliance/dnd-classifier.js';
 import type { EventEnvelope } from '../events/types/events.js';
-import type { RenderedTemplate } from '../template/types/template-types.js';
 import type {
   DeliveryComplianceContext,
   DeliveryResult,
@@ -34,13 +33,10 @@ export class SmsDispatcher {
     private readonly dependencies: SmsDispatcherDependencies,
     private readonly provider: SmsProvider,
   ) {
-    this.classifier =
-      dependencies.classifier ?? new DndClassificationService();
+    this.classifier = dependencies.classifier ?? new DndClassificationService();
   }
 
-  async dispatch(
-    context: DeliveryComplianceContext,
-  ): Promise<DeliveryResult> {
+  async dispatch(context: DeliveryComplianceContext): Promise<DeliveryResult> {
     const classification = this.classify(context.event);
     const isCritical = context.event.priority === 'critical';
 
@@ -91,16 +87,13 @@ export class SmsDispatcher {
       context.quietHours &&
       context.quietHoursNotification
     ) {
-      const shouldQueue =
-        this.dependencies.quietHoursService.shouldQueue(
-          context.quietHoursNotification,
-          context.quietHours,
-        );
+      const shouldQueue = this.dependencies.quietHoursService.shouldQueue(
+        context.quietHoursNotification,
+        context.quietHours,
+      );
 
       if (shouldQueue) {
-        this.dependencies.quietHoursQueue.add(
-          context.quietHoursNotification,
-        );
+        this.dependencies.quietHoursQueue.add(context.quietHoursNotification);
 
         this.dependencies.auditService.record({
           userId: context.userId,
@@ -126,8 +119,7 @@ export class SmsDispatcher {
         action: 'CRITICAL_BYPASS',
         channel: 'sms',
         classification,
-        reason:
-          'Critical notification bypassed frequency caps and quiet hours',
+        reason: 'Critical notification bypassed frequency caps and quiet hours',
       });
     }
 
@@ -135,10 +127,7 @@ export class SmsDispatcher {
      * FINAL COMPLIANCE GATE:
      * DND and consent checks must happen immediately before SMS dispatch.
      */
-    const allowed = await this.evaluateFinalCompliance(
-      context,
-      classification,
-    );
+    const allowed = await this.evaluateFinalCompliance(context, classification);
 
     if (!allowed) {
       return {
@@ -169,18 +158,11 @@ export class SmsDispatcher {
     context: DeliveryComplianceContext,
     classification: DndClassification,
   ): Promise<boolean> {
-    const {
-      dndRegistry,
-      consentService,
-      auditService,
-    } = this.dependencies;
+    const { dndRegistry, consentService, auditService } = this.dependencies;
 
     const dndEntry = await dndRegistry.lookup(context.userId);
 
-    if (
-      dndEntry?.isRegistered &&
-      classification === 'PROMOTIONAL'
-    ) {
+    if (dndEntry?.isRegistered && classification === 'PROMOTIONAL') {
       auditService.record({
         userId: context.userId,
         eventId: context.event.event_id,
@@ -193,10 +175,7 @@ export class SmsDispatcher {
       return false;
     }
 
-    const hasConsent = consentService.hasConsent(
-      context.userId,
-      'sms',
-    );
+    const hasConsent = consentService.hasConsent(context.userId, 'sms');
 
     if (!hasConsent) {
       auditService.record({

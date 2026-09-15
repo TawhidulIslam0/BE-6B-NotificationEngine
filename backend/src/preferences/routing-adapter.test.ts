@@ -215,10 +215,7 @@ describe('PreferenceRoutingAdapter', () => {
       () => new Date('2026-09-13T16:00:00.000Z'),
     );
 
-    const result = adapter.route(
-      criticalEvent,
-      preferences,
-    );
+    const result = adapter.route(criticalEvent, preferences);
 
     expect(result.channels).toEqual([]);
   });

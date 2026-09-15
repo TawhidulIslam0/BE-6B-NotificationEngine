@@ -16,9 +16,7 @@ describe('DND classifier', () => {
     'shipment.delivered',
     'subscription.payment_failed',
   ])('classifies %s as transactional', (eventType) => {
-    expect(service.classify(eventType)).toBe(
-      'TRANSACTIONAL',
-    );
+    expect(service.classify(eventType)).toBe('TRANSACTIONAL');
   });
 
   it.each([
@@ -28,18 +26,12 @@ describe('DND classifier', () => {
     'newsletter.created',
     'offer.available',
   ])('classifies %s as promotional', (eventType) => {
-    expect(service.classify(eventType)).toBe(
-      'PROMOTIONAL',
-    );
+    expect(service.classify(eventType)).toBe('PROMOTIONAL');
   });
 
   it('supports helper methods', () => {
-    expect(
-      service.isTransactional('payment.failed'),
-    ).toBe(true);
+    expect(service.isTransactional('payment.failed')).toBe(true);
 
-    expect(
-      service.isPromotional('promotion.available'),
-    ).toBe(true);
+    expect(service.isPromotional('promotion.available')).toBe(true);
   });
 });

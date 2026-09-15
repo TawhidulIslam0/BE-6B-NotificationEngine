@@ -1,7 +1,4 @@
-import type {
-  FrequencyCapRequest,
-  FrequencyCapResult,
-} from './types.js';
+import type { FrequencyCapRequest, FrequencyCapResult } from './types.js';
 import { redis } from '../infrastructure/redis/redis-client.js';
 
 const ATOMIC_FREQUENCY_CAP_SCRIPT = `
@@ -43,9 +40,7 @@ return {1, 0, 0}
 `;
 
 export class FrequencyCapService {
-  async check(
-    request: FrequencyCapRequest,
-  ): Promise<FrequencyCapResult> {
+  async check(request: FrequencyCapRequest): Promise<FrequencyCapResult> {
     if (request.rules.length === 0) {
       return {
         allowed: true,

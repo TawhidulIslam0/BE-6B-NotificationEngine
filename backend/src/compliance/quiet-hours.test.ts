@@ -17,33 +17,25 @@ describe('Quiet hours service', () => {
   it('detects overnight quiet hours', () => {
     const date = new Date('2026-09-09T23:00:00');
 
-    expect(
-      service.isWithinQuietHours(date, quietHours).quiet,
-    ).toBe(true);
+    expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(true);
   });
 
   it('detects morning outside quiet hours', () => {
     const date = new Date('2026-09-09T10:00:00');
 
-    expect(
-      service.isWithinQuietHours(date, quietHours).quiet,
-    ).toBe(false);
+    expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(false);
   });
 
   it('detects the exact start boundary', () => {
     const date = new Date('2026-09-09T22:00:00');
 
-    expect(
-      service.isWithinQuietHours(date, quietHours).quiet,
-    ).toBe(true);
+    expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(true);
   });
 
   it('detects the exact end boundary', () => {
     const date = new Date('2026-09-09T07:00:00');
 
-    expect(
-      service.isWithinQuietHours(date, quietHours).quiet,
-    ).toBe(false);
+    expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(false);
   });
 
   it('does not enforce disabled quiet hours', () => {
