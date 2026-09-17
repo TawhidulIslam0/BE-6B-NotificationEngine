@@ -9,7 +9,16 @@ import {
 
 import type { ProviderHealthService } from './delivery/health/provider-health-service.js';
 
-export function createApp(providerHealthService?: ProviderHealthService) {
+import type { DlqDashboardService } from './delivery/dlq/dlq-dashboard-service.js';
+
+import { createDlqDashboardRouter } from './delivery/dlq/dlq-dashboard-api.js';
+
+export interface AppDependencies {
+  providerHealthService?: ProviderHealthService;
+  dlqDashboardService?: DlqDashboardService;
+}
+
+export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
 
   app.use(express.json());
@@ -22,7 +31,7 @@ export function createApp(providerHealthService?: ProviderHealthService) {
   });
 
   app.get('/health/providers', async (_request, response) => {
-    if (providerHealthService === undefined) {
+    if (dependencies.providerHealthService === undefined) {
       response.status(503).json({
         status: 'unavailable',
         service: 'notification-engine',
@@ -31,7 +40,7 @@ export function createApp(providerHealthService?: ProviderHealthService) {
       return;
     }
 
-    const health = await providerHealthService.checkAll();
+    const health = await dependencies.providerHealthService.checkAll();
 
     response.status(health.healthy ? 200 : 503).json({
       status: health.healthy ? 'ok' : 'degraded',
@@ -41,16 +50,20 @@ export function createApp(providerHealthService?: ProviderHealthService) {
     });
   });
 
-  const service = new PreferenceService(
+  const preferenceService = new PreferenceService(
     new InMemoryPreferenceStore(),
     new InMemoryPreferenceCache(),
   );
 
-  const handlers = createPreferenceHandlers(service);
+  const handlers = createPreferenceHandlers(preferenceService);
 
   app.get('/users/:id/preferences', handlers.get);
 
   app.put('/users/:id/preferences', handlers.put);
+
+  if (dependencies.dlqDashboardService !== undefined) {
+    app.use(createDlqDashboardRouter(dependencies.dlqDashboardService));
+  }
 
   return app;
 }
