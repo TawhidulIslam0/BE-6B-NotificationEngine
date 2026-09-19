@@ -2,9 +2,9 @@ import express from 'express';
 
 import {
   createPreferenceHandlers,
-  PreferenceService,
   InMemoryPreferenceCache,
   InMemoryPreferenceStore,
+  PreferenceService,
 } from './preferences/index.js';
 
 import type { ProviderHealthService } from './delivery/health/provider-health-service.js';
@@ -13,9 +13,15 @@ import type { DlqDashboardService } from './delivery/dlq/dlq-dashboard-service.j
 
 import { createDlqDashboardRouter } from './delivery/dlq/dlq-dashboard-api.js';
 
+import type { AnalyticsApi } from './analytics/analytics-api.js';
+
+import type { PrometheusMetricsService } from './analytics/prometheus-metrics-service.js';
+
 export interface AppDependencies {
   providerHealthService?: ProviderHealthService;
   dlqDashboardService?: DlqDashboardService;
+  analyticsApi?: AnalyticsApi;
+  prometheusMetricsService?: PrometheusMetricsService;
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -37,6 +43,7 @@ export function createApp(dependencies: AppDependencies = {}) {
         service: 'notification-engine',
         message: 'Provider health service is not configured',
       });
+
       return;
     }
 
@@ -63,6 +70,91 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   if (dependencies.dlqDashboardService !== undefined) {
     app.use(createDlqDashboardRouter(dependencies.dlqDashboardService));
+  }
+
+  if (dependencies.analyticsApi !== undefined) {
+    app.get('/analytics/delivery-rates', async (request, response) => {
+      try {
+        const result = await dependencies.analyticsApi!.getDeliveryRates(
+          request.query,
+        );
+
+        response.status(200).json(result);
+      } catch (error) {
+        console.error('Analytics delivery-rates error:', error);
+
+        response.status(500).json({
+          status: 'error',
+          message: 'Failed to retrieve delivery-rate analytics',
+        });
+      }
+    });
+
+    app.get('/analytics/channel-performance', async (request, response) => {
+      try {
+        const result = await dependencies.analyticsApi!.getChannelPerformance(
+          request.query,
+        );
+
+        response.status(200).json(result);
+      } catch (error) {
+        console.error('Analytics channel-performance error:', error);
+
+        response.status(500).json({
+          status: 'error',
+          message: 'Failed to retrieve channel-performance analytics',
+        });
+      }
+    });
+
+    app.get('/analytics/opt-out-trends', async (request, response) => {
+      try {
+        const result = await dependencies.analyticsApi!.getOptOutTrends(
+          request.query,
+        );
+
+        response.status(200).json(result);
+      } catch (error) {
+        console.error('Analytics opt-out-trends error:', error);
+
+        response.status(500).json({
+          status: 'error',
+          message: 'Failed to retrieve opt-out analytics',
+        });
+      }
+    });
+
+    app.get('/analytics/costs', async (request, response) => {
+      try {
+        const result = await dependencies.analyticsApi!.getCosts(request.query);
+
+        response.status(200).json(result);
+      } catch (error) {
+        console.error('Analytics costs error:', error);
+
+        response.status(500).json({
+          status: 'error',
+          message: 'Failed to retrieve cost analytics',
+        });
+      }
+    });
+  }
+
+  if (dependencies.prometheusMetricsService !== undefined) {
+    app.get('/metrics', async (_request, response) => {
+      try {
+        const metrics = await dependencies.prometheusMetricsService!.render();
+
+        response.status(200).type('text/plain').send(metrics);
+      } catch (error) {
+        console.error('Prometheus metrics error:', error);
+
+        response
+          .status(500)
+          .type('text/plain')
+          .send('# Metrics collection failed\n');
+      }
+    });
   }
 
   return app;

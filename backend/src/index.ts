@@ -30,6 +30,13 @@ import { SocketNotificationServer } from './infrastructure/socket/socket-server.
 
 import { database } from './infrastructure/postgres/client.js';
 
+import {
+  AnalyticsApi,
+  PostgresAnalyticsRepository,
+  PrometheusMetricsService,
+  RedisAnalyticsService,
+} from './analytics/index.js';
+
 const port = Number(process.env.PORT ?? 3000);
 
 const emailProvider = new EmailProvider({
@@ -74,6 +81,8 @@ const redis = new Redis({
   port: Number(process.env.REDIS_PORT ?? 6379),
 });
 
+const redisAnalyticsService = new RedisAnalyticsService(redis);
+
 const retryPolicyService = new RetryPolicyService();
 
 const retryScheduler = new RetryScheduler(redis, retryPolicyService);
@@ -87,9 +96,19 @@ const dlqDashboardService = new DlqDashboardService(
   dlqConsumer,
 );
 
+const analyticsRepository = new PostgresAnalyticsRepository(database);
+
+const analyticsApi = new AnalyticsApi(analyticsRepository);
+
+const prometheusMetricsService = new PrometheusMetricsService(
+  redisAnalyticsService,
+);
+
 const application = createApp({
   providerHealthService,
   dlqDashboardService,
+  analyticsApi,
+  prometheusMetricsService,
 });
 
 httpServer.on('request', application);
@@ -106,6 +125,10 @@ httpServer.listen(port, () => {
   console.log('Retry scheduler initialized');
 
   console.log('DLQ consumer initialized');
+
+  console.log('Analytics API initialized');
+
+  console.log('Prometheus metrics endpoint initialized at /metrics');
 });
 
 const shutdown = async (signal: string): Promise<void> => {
