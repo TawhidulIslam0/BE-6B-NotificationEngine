@@ -1,7 +1,5 @@
 import { createServer } from 'node:http';
 
-import Redis from 'ioredis';
-
 export * from './delivery/health/provider-health-service.js';
 
 import { createApp } from './app.js';
@@ -17,18 +15,17 @@ import {
 import { SmsProvider } from './delivery/providers/sms-provider.js';
 
 import { DlqConsumer } from './delivery/dlq/dlq-consumer.js';
-
 import { DlqDashboardRepository } from './delivery/dlq/dlq-dashboard-repository.js';
-
 import { DlqDashboardService } from './delivery/dlq/dlq-dashboard-service.js';
-
 import { RetryPolicyService } from './delivery/retry/retry-policy.js';
-
 import { RetryScheduler } from './delivery/retry/retry-scheduler.js';
 
-import { SocketNotificationServer } from './infrastructure/socket/socket-server.js';
+import { NotificationProducer } from './events/producer/notification-producer.js';
+import { NotificationConsumer } from './events/consumer/notification-consumer.js';
 
 import { database } from './infrastructure/postgres/client.js';
+import { redis } from './infrastructure/redis/redis-client.js';
+import { SocketNotificationServer } from './infrastructure/socket/socket-server.js';
 
 import {
   AnalyticsApi,
@@ -76,15 +73,9 @@ const providerHealthService = new ProviderHealthService([
   inAppProvider,
 ]);
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST ?? 'localhost',
-  port: Number(process.env.REDIS_PORT ?? 6379),
-});
-
 const redisAnalyticsService = new RedisAnalyticsService(redis);
 
 const retryPolicyService = new RetryPolicyService();
-
 const retryScheduler = new RetryScheduler(redis, retryPolicyService);
 
 const dlqDashboardRepository = new DlqDashboardRepository(database);
@@ -97,47 +88,66 @@ const dlqDashboardService = new DlqDashboardService(
 );
 
 const analyticsRepository = new PostgresAnalyticsRepository(database);
-
 const analyticsApi = new AnalyticsApi(analyticsRepository);
 
 const prometheusMetricsService = new PrometheusMetricsService(
   redisAnalyticsService,
 );
 
-const application = createApp({
-  providerHealthService,
-  dlqDashboardService,
-  analyticsApi,
-  prometheusMetricsService,
-});
+const notificationProducer = new NotificationProducer();
+const notificationConsumer = new NotificationConsumer();
 
-httpServer.on('request', application);
+const start = async (): Promise<void> => {
+  await notificationProducer.connect();
+  await notificationConsumer.connect();
 
-httpServer.listen(port, () => {
-  console.log(`Notification Engine backend is running on port ${port}`);
+  const application = createApp({
+    providerHealthService,
+    dlqDashboardService,
+    analyticsApi,
+    prometheusMetricsService,
+    notificationProducer,
+  });
 
-  console.log('Socket.io notification server is running');
+  httpServer.on('request', application);
 
-  console.log(`In-app provider initialized: ${inAppProvider.constructor.name}`);
+  httpServer.listen(port, () => {
+    console.log(`Notification Engine backend is running on port ${port}`);
+    console.log('Socket.io notification server is running');
+    console.log(
+      `In-app provider initialized: ${inAppProvider.constructor.name}`,
+    );
+    console.log('DLQ dashboard API initialized');
+    console.log('Retry scheduler initialized');
+    console.log('DLQ consumer initialized');
+    console.log('Analytics API initialized');
+    console.log('Prometheus metrics endpoint initialized at /metrics');
+    console.log('Notification Kafka producer initialized');
+    console.log('Notification Kafka consumer initialized');
+  });
 
-  console.log('DLQ dashboard API initialized');
-
-  console.log('Retry scheduler initialized');
-
-  console.log('DLQ consumer initialized');
-
-  console.log('Analytics API initialized');
-
-  console.log('Prometheus metrics endpoint initialized at /metrics');
-});
+  void notificationConsumer.run(async (result) => {
+    console.log(
+      JSON.stringify({
+        eventId: result.event.event_id,
+        eventType: result.event.event_type,
+        userId: result.event.user_id,
+        priority: result.event.priority,
+        duplicate: result.duplicate,
+        digestQueued: result.digestQueued ?? false,
+        routing: result.routing,
+      }),
+    );
+  });
+};
 
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`${signal} received. Shutting down gracefully...`);
 
+  await notificationConsumer.disconnect();
+  await notificationProducer.disconnect();
   await socketNotificationServer.close();
-
   await redis.quit();
-
   await database.destroy();
 
   httpServer.close(() => {
@@ -151,4 +161,9 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   void shutdown('SIGTERM');
+});
+
+void start().catch((error: unknown) => {
+  console.error('Notification Engine failed to start:', error);
+  process.exitCode = 1;
 });

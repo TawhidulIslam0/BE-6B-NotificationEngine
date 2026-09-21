@@ -34,6 +34,8 @@ export const env = {
     partitions: Number(process.env.KAFKA_PARTITIONS ?? 3),
 
     replicationFactor: Number(process.env.KAFKA_REPLICATION_FACTOR ?? 1),
+
+    consumerConcurrency: Number(process.env.KAFKA_CONSUMER_CONCURRENCY ?? 1),
   },
 
   redis: {

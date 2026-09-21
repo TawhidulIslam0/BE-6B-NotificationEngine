@@ -1,0 +1,13 @@
+﻿{
+  "event_id": "k6-schema-test-002",
+  "event_type": "user.welcome",
+  "event_version": "1.0",
+  "occurred_at": "2026-09-20T22:00:00Z",
+  "user_id": "a96c5488-74ea-449f-a09e-2efad789dca7",
+  "correlation_id": "k6-correlation-test-002",
+  "source": "k6",
+  "priority": "normal",
+  "payload": {
+    "name": "k6 Benchmark User"
+  }
+}

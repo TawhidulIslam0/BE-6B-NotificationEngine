@@ -17,11 +17,16 @@ import type { AnalyticsApi } from './analytics/analytics-api.js';
 
 import type { PrometheusMetricsService } from './analytics/prometheus-metrics-service.js';
 
+import type { NotificationProducer } from './events/producer/notification-producer.js';
+
+import { validateEvent } from './events/factory/event-factory.js';
+
 export interface AppDependencies {
   providerHealthService?: ProviderHealthService;
   dlqDashboardService?: DlqDashboardService;
   analyticsApi?: AnalyticsApi;
   prometheusMetricsService?: PrometheusMetricsService;
+  notificationProducer?: NotificationProducer;
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -54,6 +59,50 @@ export function createApp(dependencies: AppDependencies = {}) {
       service: 'notification-engine',
       checkedAt: health.checkedAt,
       providers: health.providers,
+    });
+  });
+
+  app.post('/api/v1/events', async (request, response) => {
+    if (dependencies.notificationProducer === undefined) {
+      response.status(503).json({
+        status: 'unavailable',
+        message: 'Notification producer is not configured',
+      });
+
+      return;
+    }
+
+    let event;
+
+    try {
+      event = validateEvent(request.body);
+    } catch (error) {
+      console.error('Event validation error:', error);
+
+      response.status(400).json({
+        status: 'error',
+        message: 'Invalid notification event',
+      });
+
+      return;
+    }
+
+    try {
+      await dependencies.notificationProducer.publish(event);
+    } catch (error) {
+      console.error('Event publishing error:', error);
+
+      response.status(503).json({
+        status: 'error',
+        message: 'Failed to publish notification event',
+      });
+
+      return;
+    }
+
+    response.status(202).json({
+      eventId: event.event_id,
+      status: 'accepted',
     });
   });
 

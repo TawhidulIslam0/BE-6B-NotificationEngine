@@ -72,6 +72,7 @@ export class NotificationConsumer {
   async run(handler: EventHandler): Promise<void> {
     await this.consumer.run({
       autoCommit: false,
+      partitionsConsumedConcurrently: env.kafka.consumerConcurrency,
 
       eachMessage: async (payload: EachMessagePayload) => {
         const event = deserializeEvent(
