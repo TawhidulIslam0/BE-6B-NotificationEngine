@@ -1,0 +1,149 @@
+groups:
+  - name: notification-engine-critical-alerts
+    interval: 30s
+
+    rules:
+      # API availability
+      - alert: NotificationEngineServiceDown
+        expr: up{job="notification-engine"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: notification-engine
+        annotations:
+          summary: 'Notification Engine service is down'
+          description: >
+            Notification Engine has been unreachable for more than 2 minutes.
+
+      # High HTTP error rate
+      - alert: NotificationEngineHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{
+              service="notification-engine",
+              status=~"5.."
+            }[5m]))
+            /
+            sum(rate(http_requests_total{
+              service="notification-engine"
+            }[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: notification-engine
+        annotations:
+          summary: 'High HTTP error rate detected'
+          description: >
+            More than 5% of Notification Engine requests are returning 5xx errors.
+
+      # Provider failures
+      - alert: NotificationProviderFailures
+        expr: |
+          increase(notification_delivery_failures_total[10m]) > 50
+        for: 5m
+        labels:
+          severity: critical
+          service: notification-engine
+        annotations:
+          summary: 'Notification provider failures increasing'
+          description: >
+            More than 50 delivery failures occurred in the last 10 minutes.
+
+      # Kafka consumer stopped
+      - alert: NotificationConsumerStopped
+        expr: |
+          kafka_consumer_active == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: notification-engine
+        annotations:
+          summary: 'Kafka notification consumer stopped'
+          description: >
+            Notification event consumer is no longer processing messages.
+
+      # DLQ growth
+      - alert: NotificationDeadLetterQueueGrowing
+        expr: |
+          increase(notification_dlq_messages_total[15m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: notification-engine
+        annotations:
+          summary: 'DLQ messages increasing'
+          description: >
+            Dead letter queue has received more than 100 messages in 15 minutes.
+
+      # Retry storm detection
+      - alert: NotificationRetryStorm
+        expr: |
+          rate(notification_retry_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: notification-engine
+        annotations:
+          summary: 'Notification retry storm detected'
+          description: >
+            Retry volume is exceeding normal operating thresholds.
+
+      # Redis unavailable
+      - alert: NotificationRedisUnavailable
+        expr: |
+          redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: notification-engine
+        annotations:
+          summary: 'Redis unavailable'
+          description: >
+            Redis dependency is unavailable.
+
+      # Database unavailable
+      - alert: NotificationDatabaseUnavailable
+        expr: |
+          pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: notification-engine
+        annotations:
+          summary: 'PostgreSQL unavailable'
+          description: >
+            PostgreSQL dependency is unavailable.
+
+      # High latency
+      - alert: NotificationEngineHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m]))
+            by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: notification-engine
+        annotations:
+          summary: 'High API latency'
+          description: >
+            95th percentile request latency is above 1 second.
+
+      # Memory usage
+      - alert: NotificationEngineHighMemoryUsage
+        expr: |
+          process_resident_memory_bytes
+          /
+          node_memory_MemTotal_bytes
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: notification-engine
+        annotations:
+          summary: 'High memory usage'
+          description: >
+            Notification Engine memory usage exceeded 85%.

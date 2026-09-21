@@ -44,4 +44,3 @@ export default function () {
     'status is 202': (r) => r.status === 202,
   });
 }
-

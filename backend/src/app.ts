@@ -1,4 +1,8 @@
-import express from 'express';
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from 'express';
 
 import {
   createPreferenceHandlers,
@@ -8,18 +12,14 @@ import {
 } from './preferences/index.js';
 
 import type { ProviderHealthService } from './delivery/health/provider-health-service.js';
-
 import type { DlqDashboardService } from './delivery/dlq/dlq-dashboard-service.js';
-
-import { createDlqDashboardRouter } from './delivery/dlq/dlq-dashboard-api.js';
-
 import type { AnalyticsApi } from './analytics/analytics-api.js';
-
 import type { PrometheusMetricsService } from './analytics/prometheus-metrics-service.js';
-
 import type { NotificationProducer } from './events/producer/notification-producer.js';
-
+import { createDlqDashboardRouter } from './delivery/dlq/dlq-dashboard-api.js';
 import { validateEvent } from './events/factory/event-factory.js';
+import { createCorrelationLogger } from './logging/correlation.js';
+import { logger } from './logging/logger.js';
 
 export interface AppDependencies {
   providerHealthService?: ProviderHealthService;
@@ -27,6 +27,13 @@ export interface AppDependencies {
   analyticsApi?: AnalyticsApi;
   prometheusMetricsService?: PrometheusMetricsService;
   notificationProducer?: NotificationProducer;
+
+  readinessChecks?: {
+    database?: () => Promise<boolean>;
+    redis?: () => Promise<boolean>;
+    kafka?: () => Promise<boolean>;
+    rabbitmq?: () => Promise<boolean>;
+  };
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -34,177 +41,403 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.use(express.json());
 
-  app.get('/health', (_request, response) => {
+  /**
+   * Request logging middleware
+   */
+  app.use((request, response, next) => {
+    const startedAt = Date.now();
+
+    response.on('finish', () => {
+      logger.info(
+        {
+          method: request.method,
+          path: request.originalUrl,
+          statusCode: response.statusCode,
+          durationMs: Date.now() - startedAt,
+          remoteAddress: request.ip,
+        },
+        'HTTP request completed',
+      );
+    });
+
+    next();
+  });
+
+
+  /**
+   * Liveness probe
+   * Process is alive.
+   */
+  app.get('/live', (_request, response) => {
     response.status(200).json({
-      status: 'ok',
+      status: 'alive',
       service: 'notification-engine',
+      timestamp: new Date().toISOString(),
     });
   });
 
+
+  /**
+   * Comprehensive health check
+   */
+  app.get('/health', async (_request, response) => {
+    const checks: Record<string, boolean> = {};
+
+    try {
+      if (dependencies.readinessChecks?.database) {
+        checks.database =
+          await dependencies.readinessChecks.database();
+      }
+
+      if (dependencies.readinessChecks?.redis) {
+        checks.redis =
+          await dependencies.readinessChecks.redis();
+      }
+
+      if (dependencies.readinessChecks?.kafka) {
+        checks.kafka =
+          await dependencies.readinessChecks.kafka();
+      }
+
+      if (dependencies.readinessChecks?.rabbitmq) {
+        checks.rabbitmq =
+          await dependencies.readinessChecks.rabbitmq();
+      }
+
+      if (dependencies.providerHealthService) {
+        const providers =
+          await dependencies.providerHealthService.checkAll();
+
+        checks.providers = providers.healthy;
+      }
+
+
+      const healthy =
+        Object.values(checks).every(Boolean);
+
+
+      response.status(healthy ? 200 : 503).json({
+        status: healthy ? 'healthy' : 'unhealthy',
+        service: 'notification-engine',
+        checks,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (error) {
+      logger.error(
+        {
+          error,
+        },
+        'Health check failed',
+      );
+
+      response.status(503).json({
+        status: 'unhealthy',
+        service: 'notification-engine',
+        message: 'Health check failure',
+      });
+    }
+  });
+
+
+  /**
+   * Readiness probe
+   * Dependencies required before accepting traffic.
+   */
+  app.get('/ready', async (_request, response) => {
+    const checks: Record<string, boolean> = {};
+
+    try {
+
+      if (dependencies.readinessChecks?.database) {
+        checks.database =
+          await dependencies.readinessChecks.database();
+      }
+
+      if (dependencies.readinessChecks?.redis) {
+        checks.redis =
+          await dependencies.readinessChecks.redis();
+      }
+
+      if (dependencies.readinessChecks?.kafka) {
+        checks.kafka =
+          await dependencies.readinessChecks.kafka();
+      }
+
+      if (dependencies.readinessChecks?.rabbitmq) {
+        checks.rabbitmq =
+          await dependencies.readinessChecks.rabbitmq();
+      }
+
+
+      const ready =
+        Object.values(checks).every(Boolean);
+
+      response.status(ready ? 200 : 503).json({
+        status: ready ? 'ready' : 'not-ready',
+        service: 'notification-engine',
+        checks,
+        timestamp: new Date().toISOString(),
+      });
+
+
+    } catch (error) {
+
+      logger.error(
+        {
+          error,
+        },
+        'Readiness check failed',
+      );
+
+      response.status(503).json({
+        status: 'not-ready',
+        service: 'notification-engine',
+      });
+    }
+  });
+
+  /**
+   * Provider health
+   */
   app.get('/health/providers', async (_request, response) => {
-    if (dependencies.providerHealthService === undefined) {
+
+    if (!dependencies.providerHealthService) {
       response.status(503).json({
         status: 'unavailable',
-        service: 'notification-engine',
-        message: 'Provider health service is not configured',
+        message: 'Provider health service not configured',
       });
 
       return;
     }
 
-    const health = await dependencies.providerHealthService.checkAll();
+    const health =
+      await dependencies.providerHealthService.checkAll();
 
-    response.status(health.healthy ? 200 : 503).json({
-      status: health.healthy ? 'ok' : 'degraded',
+
+    response.status(
+      health.healthy ? 200 : 503,
+    )
+    .json({
+      status: health.healthy
+        ? 'ok'
+        : 'degraded',
       service: 'notification-engine',
       checkedAt: health.checkedAt,
       providers: health.providers,
     });
+
   });
 
+  /**
+   * Event ingestion
+   */
   app.post('/api/v1/events', async (request, response) => {
-    if (dependencies.notificationProducer === undefined) {
+
+    if (!dependencies.notificationProducer) {
       response.status(503).json({
         status: 'unavailable',
-        message: 'Notification producer is not configured',
+        message:
+          'Notification producer is not configured',
       });
 
       return;
     }
 
-    let event;
-
     try {
-      event = validateEvent(request.body);
-    } catch (error) {
-      console.error('Event validation error:', error);
+
+      const event =
+        validateEvent(request.body);
+
+      const eventLogger =
+        createCorrelationLogger(
+          logger,
+          {
+            correlationId:
+              event.correlation_id,
+          },
+        );
+
+      eventLogger.info(
+        {
+          eventId:event.event_id,
+          eventType:event.event_type,
+          userId:event.user_id,
+        },
+        'Notification event accepted',
+      );
+
+      await dependencies.notificationProducer.publish(
+        event,
+      );
+
+      response.status(202).json({
+        eventId:event.event_id,
+        status:'accepted',
+      });
+
+    } catch(error){
+
+      logger.error(
+        {
+          error,
+        },
+        'Notification event failed',
+      );
+
 
       response.status(400).json({
-        status: 'error',
-        message: 'Invalid notification event',
+        status:'error',
+        message:
+          'Invalid notification event',
       });
-
-      return;
     }
-
-    try {
-      await dependencies.notificationProducer.publish(event);
-    } catch (error) {
-      console.error('Event publishing error:', error);
-
-      response.status(503).json({
-        status: 'error',
-        message: 'Failed to publish notification event',
-      });
-
-      return;
-    }
-
-    response.status(202).json({
-      eventId: event.event_id,
-      status: 'accepted',
-    });
   });
 
-  const preferenceService = new PreferenceService(
-    new InMemoryPreferenceStore(),
-    new InMemoryPreferenceCache(),
+
+  /**
+   * Preferences
+   */
+  const preferenceService =
+    new PreferenceService(
+      new InMemoryPreferenceStore(),
+      new InMemoryPreferenceCache(),
+    );
+
+
+  const handlers =
+    createPreferenceHandlers(
+      preferenceService,
+    );
+
+  app.get(
+    '/users/:id/preferences',
+    handlers.get,
   );
 
-  const handlers = createPreferenceHandlers(preferenceService);
+  app.put(
+    '/users/:id/preferences',
+    handlers.put,
+  );
 
-  app.get('/users/:id/preferences', handlers.get);
-
-  app.put('/users/:id/preferences', handlers.put);
-
-  if (dependencies.dlqDashboardService !== undefined) {
-    app.use(createDlqDashboardRouter(dependencies.dlqDashboardService));
+  /**
+   * DLQ dashboard
+   */
+  if (dependencies.dlqDashboardService) {
+    app.use(
+      createDlqDashboardRouter(
+        dependencies.dlqDashboardService,
+      ),
+    );
   }
 
-  if (dependencies.analyticsApi !== undefined) {
-    app.get('/analytics/delivery-rates', async (request, response) => {
-      try {
-        const result = await dependencies.analyticsApi!.getDeliveryRates(
-          request.query,
+  /**
+   * Analytics
+   */
+  const analyticsApi =
+    dependencies.analyticsApi;
+
+
+  if (analyticsApi) {
+
+    app.get(
+      '/analytics/delivery-rates',
+      async (request,response)=>{
+        response.json(
+          await analyticsApi.getDeliveryRates(
+            request.query,
+          ),
         );
+      },
+    );
 
-        response.status(200).json(result);
-      } catch (error) {
-        console.error('Analytics delivery-rates error:', error);
-
-        response.status(500).json({
-          status: 'error',
-          message: 'Failed to retrieve delivery-rate analytics',
-        });
-      }
-    });
-
-    app.get('/analytics/channel-performance', async (request, response) => {
-      try {
-        const result = await dependencies.analyticsApi!.getChannelPerformance(
-          request.query,
+    app.get(
+      '/analytics/channel-performance',
+      async (request,response)=>{
+        response.json(
+          await analyticsApi.getChannelPerformance(
+            request.query,
+          ),
         );
+      },
+    );
 
-        response.status(200).json(result);
-      } catch (error) {
-        console.error('Analytics channel-performance error:', error);
-
-        response.status(500).json({
-          status: 'error',
-          message: 'Failed to retrieve channel-performance analytics',
-        });
-      }
-    });
-
-    app.get('/analytics/opt-out-trends', async (request, response) => {
-      try {
-        const result = await dependencies.analyticsApi!.getOptOutTrends(
-          request.query,
+    app.get(
+      '/analytics/opt-out-trends',
+      async (request,response)=>{
+        response.json(
+          await analyticsApi.getOptOutTrends(
+            request.query,
+          ),
         );
+      },
+    );
 
-        response.status(200).json(result);
-      } catch (error) {
-        console.error('Analytics opt-out-trends error:', error);
-
-        response.status(500).json({
-          status: 'error',
-          message: 'Failed to retrieve opt-out analytics',
-        });
-      }
-    });
-
-    app.get('/analytics/costs', async (request, response) => {
-      try {
-        const result = await dependencies.analyticsApi!.getCosts(request.query);
-
-        response.status(200).json(result);
-      } catch (error) {
-        console.error('Analytics costs error:', error);
-
-        response.status(500).json({
-          status: 'error',
-          message: 'Failed to retrieve cost analytics',
-        });
-      }
-    });
+    app.get(
+      '/analytics/costs',
+      async (request,response)=>{
+        response.json(
+          await analyticsApi.getCosts(
+            request.query,
+          ),
+        );
+      },
+    );
   }
 
-  if (dependencies.prometheusMetricsService !== undefined) {
-    app.get('/metrics', async (_request, response) => {
-      try {
-        const metrics = await dependencies.prometheusMetricsService!.render();
+  /**
+   * Prometheus
+   */
+  if (dependencies.prometheusMetricsService) {
 
-        response.status(200).type('text/plain').send(metrics);
-      } catch (error) {
-        console.error('Prometheus metrics error:', error);
+    app.get(
+      '/metrics',
+      async (_request,response)=>{
+
+        const metrics =
+          await dependencies
+            .prometheusMetricsService!
+            .render();
+
 
         response
-          .status(500)
+          .status(200)
           .type('text/plain')
-          .send('# Metrics collection failed\n');
-      }
-    });
+          .send(metrics);
+
+      },
+    );
   }
+
+
+  /**
+   * Global error handler
+   */
+ app.use(
+  (
+    error: unknown,
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ) => {
+    void next;
+
+    logger.error(
+      {
+        error,
+        method: request.method,
+        path: request.originalUrl,
+      },
+      'Unhandled application error',
+    );
+
+    response.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+    });
+  },
+);
+
 
   return app;
 }
