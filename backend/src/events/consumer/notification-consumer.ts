@@ -14,10 +14,7 @@ import {
 
 import { deserializeEvent } from '../serialization/event-serializer.js';
 
-import {
-  EventRouter,
-  type RoutingDecision,
-} from '../routing/event-router.js';
+import { EventRouter, type RoutingDecision } from '../routing/event-router.js';
 
 import type { PreferenceService } from '../../preferences/service.js';
 
@@ -111,9 +108,7 @@ export class NotificationConsumer {
     payload: EachMessagePayload,
     handler: EventHandler,
   ): Promise<void> {
-    const event = deserializeEvent(
-      payload.message.value ?? Buffer.from(''),
-    );
+    const event = deserializeEvent(payload.message.value ?? Buffer.from(''));
 
     const eventLogger = createCorrelationLogger(logger, {
       correlationId: event.correlation_id,
@@ -144,9 +139,7 @@ export class NotificationConsumer {
       );
 
       const digestChannels =
-        preferences === undefined
-          ? []
-          : this.getDigestChannels(preferences);
+        preferences === undefined ? [] : this.getDigestChannels(preferences);
 
       const shouldQueueDigest =
         event.priority === 'low' && digestChannels.length > 0;
@@ -257,26 +250,19 @@ export class NotificationConsumer {
     }
   }
 
-  private getDigestChannels(
-    preferences: UserPreferences,
-  ): PreferenceChannel[] {
+  private getDigestChannels(preferences: UserPreferences): PreferenceChannel[] {
     return Object.entries(preferences.channels)
       .filter(
-        ([, preference]) =>
-          preference.enabled && preference.mode === 'digest',
+        ([, preference]) => preference.enabled && preference.mode === 'digest',
       )
       .map(([channel]) => channel as PreferenceChannel);
   }
 
-  private getDigestTitle(
-    event: ReturnType<typeof deserializeEvent>,
-  ): string {
+  private getDigestTitle(event: ReturnType<typeof deserializeEvent>): string {
     return `Notification digest: ${event.event_type}`;
   }
 
-  private getDigestBody(
-    event: ReturnType<typeof deserializeEvent>,
-  ): string {
+  private getDigestBody(event: ReturnType<typeof deserializeEvent>): string {
     return JSON.stringify(event.payload);
   }
 }

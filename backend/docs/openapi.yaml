@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Notification Engine Internal API
   version: 1.0.0
-  description: Internal API contracts for event ingestion, notification operations, DLQ management, analytics and health checks.
+  description: Internal API for event ingestion, notification preferences, DLQ management, analytics, health checks, and metrics.
 
 servers:
   - url: http://localhost:3000
@@ -10,16 +10,17 @@ servers:
 tags:
   - name: Events
   - name: Preferences
-  - name: Notifications
   - name: DLQ
   - name: Analytics
   - name: Health
+  - name: Metrics
 
 paths:
   /api/v1/events:
     post:
       tags: [Events]
       summary: Publish a notification event
+      description: Validates and publishes a notification event to Kafka for asynchronous processing.
       operationId: publishEvent
       requestBody:
         required: true
@@ -27,6 +28,18 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/NotificationEvent'
+            example:
+              event_id: 01JABC1234567890
+              event_type: user.registered
+              event_version: '1.0'
+              occurred_at: '2026-09-22T15:00:00.000Z'
+              user_id: user-123
+              correlation_id: corr-123
+              source: customer-service
+              priority: normal
+              payload:
+                email: user@example.com
+                name: Tawhidul
       responses:
         '202':
           description: Event accepted for asynchronous processing
@@ -34,305 +47,781 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EventAccepted'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { $ref: '#/components/responses/RateLimited' }
+              example:
+                eventId: 01JABC1234567890
+                status: accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 
-  /api/v1/users/{userId}/preferences:
+  /live:
     get:
-      tags: [Preferences]
-      summary: Get effective notification preferences
-      operationId: getUserPreferences
-      parameters:
-        - { $ref: '#/components/parameters/UserId' }
+      tags: [Health]
+      summary: Liveness probe
+      description: Confirms that the Notification Engine process is alive.
+      operationId: getLiveness
       responses:
         '200':
-          description: User preferences
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+              example:
+                status: alive
+                service: notification-engine
+                timestamp: '2026-09-22T15:00:00.000Z'
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Comprehensive health check
+      description: Checks the database, Redis, Kafka, RabbitMQ, and configured notification providers.
+      operationId: getHealth
+      responses:
+        '200':
+          description: All configured dependencies are healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: Checks whether required infrastructure dependencies are ready to accept traffic.
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Dependencies are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: One or more dependencies are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+  /health/providers:
+    get:
+      tags: [Health]
+      summary: Check notification provider health
+      operationId: getProviderHealth
+      responses:
+        '200':
+          description: All notification providers are healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderHealthResponse'
+        '503':
+          description: One or more notification providers are unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderHealthResponse'
+
+  /users/{id}/preferences:
+    get:
+      tags: [Preferences]
+      summary: Get user notification preferences
+      operationId: getUserPreferences
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User notification preferences
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPreferences'
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     put:
       tags: [Preferences]
       summary: Update user notification preferences
       operationId: updateUserPreferences
       parameters:
-        - { $ref: '#/components/parameters/UserId' }
+        - $ref: '#/components/parameters/UserId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserPreferencesUpdate'
+              $ref: '#/components/schemas/PreferencePatch'
+            example:
+              locale: en
+              timezone: America/New_York
+              channels:
+                email:
+                  enabled: true
+                  mode: immediate
+                sms:
+                  enabled: false
+                  mode: disabled
       responses:
         '200':
-          description: Updated preferences
+          description: Updated user notification preferences
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPreferences'
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /api/v1/notifications/{notificationId}:
-    get:
-      tags: [Notifications]
-      summary: Get notification delivery state
-      operationId: getNotification
-      parameters:
-        - { $ref: '#/components/parameters/NotificationId' }
-      responses:
-        '200':
-          description: Notification state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Notification'
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/dlq:
+  /dlq:
     get:
       tags: [DLQ]
-      summary: List dead-letter records
+      summary: List dead-letter queue records
       operationId: listDlq
       parameters:
-        - {
-            name: status,
-            in: query,
-            schema: { type: string, enum: [pending, retried, discarded] },
-          }
-        - { name: eventType, in: query, schema: { type: string } }
-        - {
-            name: limit,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 100, default: 50 },
-          }
+        - $ref: '#/components/parameters/DlqLimit'
+        - $ref: '#/components/parameters/DlqOffset'
+        - $ref: '#/components/parameters/DlqClassification'
+        - $ref: '#/components/parameters/DlqStatus'
       responses:
         '200':
-          description: DLQ records
+          description: Dead-letter queue records
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/DlqRecord' }
-                  total: { type: integer }
+                additionalProperties: true
+              example:
+                items: []
+                total: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /dlq/{id}/retry:
     post:
       tags: [DLQ]
-      summary: Retry a DLQ record
+      summary: Retry a dead-letter queue record
       operationId: retryDlq
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [recordId]
-              properties:
-                recordId: { type: string }
-      responses:
-        '202': { description: DLQ record queued for retry }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/dlq/{recordId}/discard:
-    post:
-      tags: [DLQ]
-      summary: Discard a DLQ record
-      operationId: discardDlq
       parameters:
-        - { name: recordId, in: path, required: true, schema: { type: string } }
-      responses:
-        '204': { description: Record discarded }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/analytics/delivery-rates:
-    get:
-      tags: [Analytics]
-      summary: Get delivery rates
-      operationId: getDeliveryRates
-      parameters:
-        - {
-            name: from,
-            in: query,
-            required: true,
-            schema: { type: string, format: date-time },
-          }
-        - {
-            name: to,
-            in: query,
-            required: true,
-            schema: { type: string, format: date-time },
-          }
+        - $ref: '#/components/parameters/DlqId'
       responses:
         '200':
-          description: Delivery rate analytics
+          description: DLQ record queued for retry
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeliveryRates'
+                $ref: '#/components/schemas/DlqRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /api/v1/analytics/channel-performance:
+  /dlq/{id}/discard:
+    post:
+      tags: [DLQ]
+      summary: Discard a dead-letter queue record
+      operationId: discardDlq
+      parameters:
+        - $ref: '#/components/parameters/DlqId'
+      responses:
+        '200':
+          description: DLQ record discarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DlqRecord'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /analytics/delivery-rates:
     get:
       tags: [Analytics]
-      summary: Get channel performance
+      summary: Get delivery rate analytics
+      operationId: getDeliveryRates
+      parameters:
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsChannel'
+        - $ref: '#/components/parameters/EventType'
+        - $ref: '#/components/parameters/AnalyticsUserId'
+        - $ref: '#/components/parameters/EventPriority'
+      responses:
+        '200':
+          description: Delivery rate metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryRateMetric'
+
+  /analytics/channel-performance:
+    get:
+      tags: [Analytics]
+      summary: Get channel performance analytics
       operationId: getChannelPerformance
+      parameters:
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsChannel'
+        - $ref: '#/components/parameters/EventType'
+        - $ref: '#/components/parameters/AnalyticsUserId'
+        - $ref: '#/components/parameters/EventPriority'
       responses:
         '200':
           description: Channel performance metrics
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties:
-                  { $ref: '#/components/schemas/ChannelMetric' }
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChannelPerformance'
 
-  /api/v1/analytics/opt-out-trends:
+  /analytics/opt-out-trends:
     get:
       tags: [Analytics]
       summary: Get opt-out trends
       operationId: getOptOutTrends
+      parameters:
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsChannel'
+        - $ref: '#/components/parameters/EventType'
+        - $ref: '#/components/parameters/AnalyticsUserId'
+        - $ref: '#/components/parameters/EventPriority'
       responses:
         '200':
-          description: Opt-out trend data
+          description: Opt-out trend metrics
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: object
-                  required: [date, count]
-                  properties:
-                    date: { type: string, format: date }
-                    count: { type: integer }
+                  $ref: '#/components/schemas/OptOutTrend'
 
-  /health:
+  /analytics/costs:
     get:
-      tags: [Health]
-      summary: Liveness health check
+      tags: [Analytics]
+      summary: Get notification cost analytics
+      operationId: getCosts
+      parameters:
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - $ref: '#/components/parameters/AnalyticsChannel'
+        - $ref: '#/components/parameters/EventType'
+        - $ref: '#/components/parameters/AnalyticsUserId'
+        - $ref: '#/components/parameters/EventPriority'
       responses:
-        '200': { description: Service is alive }
+        '200':
+          description: Notification cost analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostAnalytics'
 
-  /ready:
+  /metrics:
     get:
-      tags: [Health]
-      summary: Readiness check
+      tags: [Metrics]
+      summary: Get Prometheus metrics
+      description: Returns application metrics in Prometheus text format.
+      operationId: getMetrics
       responses:
-        '200': { description: Dependencies are ready }
-        '503': { description: One or more dependencies are unavailable }
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
 
 components:
   parameters:
     UserId:
+      name: id
+      in: path
+      required: true
+      description: User identifier
+      schema:
+        type: string
+      example: user-123
+
+    DlqId:
+      name: id
+      in: path
+      required: true
+      description: Dead-letter queue record identifier
+      schema:
+        type: string
+      example: dlq-123
+
+    DlqLimit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      example: 50
+
+    DlqOffset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      example: 0
+
+    DlqClassification:
+      name: classification
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [transient, permanent, configuration]
+      example: transient
+
+    DlqStatus:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [pending, processing, resolved]
+      example: pending
+
+    StartDate:
+      name: startDate
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: '2026-09-01T00:00:00.000Z'
+
+    EndDate:
+      name: endDate
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      example: '2026-09-22T23:59:59.999Z'
+
+    AnalyticsChannel:
+      name: channel
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/AnalyticsChannel'
+      example: email
+
+    EventType:
+      name: eventType
+      in: query
+      required: false
+      schema:
+        type: string
+      example: user.registered
+
+    AnalyticsUserId:
       name: userId
-      in: path
-      required: true
-      schema: { type: string }
-    NotificationId:
-      name: notificationId
-      in: path
-      required: true
-      schema: { type: string }
+      in: query
+      required: false
+      schema:
+        type: string
+      example: user-123
+
+    EventPriority:
+      name: priority
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [low, normal, high, critical]
+      example: normal
 
   responses:
     BadRequest:
       description: Invalid request
-    Unauthorized:
-      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Invalid notification event
+
     NotFound:
       description: Resource not found
-    RateLimited:
-      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Record not found
+
+    ServiceUnavailable:
+      description: Required service is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: unavailable
+            message: Notification producer is not configured
 
   schemas:
     NotificationEvent:
       type: object
       required:
-        [
-          eventId,
-          eventType,
-          eventVersion,
-          occurredAt,
-          userId,
-          correlationId,
-          source,
-          payload,
-        ]
+        - event_id
+        - event_type
+        - event_version
+        - occurred_at
+        - user_id
+        - correlation_id
+        - source
+        - priority
+        - payload
       properties:
-        eventId: { type: string }
-        eventType: { type: string }
-        eventVersion: { type: string }
-        occurredAt: { type: string, format: date-time }
-        userId: { type: string }
-        correlationId: { type: string }
-        source: { type: string }
-        priority: { type: string, enum: [low, normal, high, critical] }
-        payload: { type: object, additionalProperties: true }
+        event_id:
+          type: string
+        event_type:
+          type: string
+        event_version:
+          type: string
+          enum: ['1.0']
+        occurred_at:
+          type: string
+          format: date-time
+        user_id:
+          type: string
+        correlation_id:
+          type: string
+        source:
+          type: string
+        priority:
+          type: string
+          enum: [low, normal, high, critical]
+        payload:
+          type: object
+          additionalProperties: true
 
     EventAccepted:
       type: object
       required: [eventId, status]
       properties:
-        eventId: { type: string }
-        status: { type: string, enum: [accepted] }
+        eventId:
+          type: string
+        status:
+          type: string
+          enum: [accepted]
+
+    ChannelPreference:
+      type: object
+      required: [enabled, mode]
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [immediate, digest, disabled]
 
     UserPreferences:
       type: object
+      required:
+        - userId
+        - locale
+        - timezone
+        - channels
+        - categories
+        - updatedAt
+        - source
       properties:
+        userId:
+          type: string
+        locale:
+          type: string
+          enum: [en, hi, mr, ta, te]
+        timezone:
+          type: string
+        quietHours:
+          $ref: '#/components/schemas/QuietHours'
         channels:
           type: object
-          additionalProperties: { type: boolean }
-        language: { type: string }
-        timezone: { type: string }
-        quietHours:
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelPreference'
+          example:
+            email:
+              enabled: true
+              mode: immediate
+            sms:
+              enabled: false
+              mode: disabled
+        categories:
           type: object
-          properties:
-            enabled: { type: boolean }
-            start: { type: string }
-            end: { type: string }
+          additionalProperties:
+            type: boolean
+        segment:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [default, segment, user, regulatory]
 
-    UserPreferencesUpdate:
-      allOf:
-        - $ref: '#/components/schemas/UserPreferences'
-
-    Notification:
+    PreferencePatch:
       type: object
-      required: [id, userId, eventType, status]
       properties:
-        id: { type: string }
-        userId: { type: string }
-        eventType: { type: string }
-        status: { type: string }
-        channel: { type: string }
-        provider: { type: string }
-        createdAt: { type: string, format: date-time }
-        deliveredAt: { type: string, format: date-time, nullable: true }
+        locale:
+          type: string
+          enum: [en, hi, mr, ta, te]
+        timezone:
+          type: string
+        quietHours:
+          $ref: '#/components/schemas/QuietHours'
+        channels:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelPreference'
+        categories:
+          type: object
+          additionalProperties:
+            type: boolean
+
+    QuietHours:
+      type: object
+      required: [enabled, start, end]
+      properties:
+        enabled:
+          type: boolean
+        start:
+          type: string
+          example: '22:00'
+        end:
+          type: string
+          example: '07:00'
 
     DlqRecord:
       type: object
-      required: [id, eventId, eventType, status]
+      additionalProperties: true
       properties:
-        id: { type: string }
-        eventId: { type: string }
-        eventType: { type: string }
-        status: { type: string }
-        errorClass: { type: string }
-        attempts: { type: integer }
-        createdAt: { type: string, format: date-time }
+        id:
+          type: string
+        eventId:
+          type: string
+        eventType:
+          type: string
+        classification:
+          type: string
+          enum: [transient, permanent, configuration]
+        status:
+          type: string
+          enum: [pending, processing, resolved]
+        error:
+          type: string
+        attempts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
 
-    DeliveryRates:
+    DeliveryRateMetric:
+      type: object
+      required: [total, delivered, failed, deliveryRate, failureRate]
+      properties:
+        total:
+          type: integer
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        deliveryRate:
+          type: number
+          format: float
+        failureRate:
+          type: number
+          format: float
+
+    ChannelPerformance:
+      type: object
+      required:
+        - channel
+        - total
+        - delivered
+        - failed
+        - deliveryRate
+        - averageLatencyMs
+      properties:
+        channel:
+          $ref: '#/components/schemas/AnalyticsChannel'
+        total:
+          type: integer
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        deliveryRate:
+          type: number
+          format: float
+        averageLatencyMs:
+          type: number
+          format: float
+
+    OptOutTrend:
+      type: object
+      required: [period, channel, optOuts]
+      properties:
+        period:
+          type: string
+        channel:
+          $ref: '#/components/schemas/AnalyticsChannel'
+        optOuts:
+          type: integer
+
+    CostMetric:
+      type: object
+      required: [totalCost, currency]
+      properties:
+        totalCost:
+          type: number
+          format: float
+        currency:
+          type: string
+
+    ChannelCostMetric:
+      allOf:
+        - $ref: '#/components/schemas/CostMetric'
+        - type: object
+          required: [channel]
+          properties:
+            channel:
+              $ref: '#/components/schemas/AnalyticsChannel'
+
+    EventTypeCostMetric:
+      allOf:
+        - $ref: '#/components/schemas/CostMetric'
+        - type: object
+          required: [eventType]
+          properties:
+            eventType:
+              type: string
+
+    UserCostMetric:
+      allOf:
+        - $ref: '#/components/schemas/CostMetric'
+        - type: object
+          required: [userId]
+          properties:
+            userId:
+              type: string
+
+    CostAnalytics:
+      type: object
+      required: [total, byChannel, byEventType, byUser]
+      properties:
+        total:
+          $ref: '#/components/schemas/CostMetric'
+        byChannel:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelCostMetric'
+        byEventType:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventTypeCostMetric'
+        byUser:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCostMetric'
+
+    AnalyticsChannel:
+      type: string
+      enum: [email, sms, push, whatsapp, in_app]
+
+    LivenessResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [alive]
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    HealthResponse:
+      type: object
+      required: [status, service, checks, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadinessResponse:
+      type: object
+      required: [status, service, checks, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ready, not-ready]
+        service:
+          type: string
+        checks:
+          type: object
+          additionalProperties:
+            type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+    ProviderHealthResponse:
+      type: object
+      required: [status, service, checkedAt, providers]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        service:
+          type: string
+        checkedAt:
+          type: string
+          format: date-time
+        providers:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    ErrorResponse:
       type: object
       properties:
-        delivered: { type: integer }
-        failed: { type: integer }
-        rate: { type: number, format: float }
-
-    ChannelMetric:
-      type: object
-      properties:
-        sent: { type: integer }
-        delivered: { type: integer }
-        failed: { type: integer }
-        successRate: { type: number, format: float }
+        status:
+          type: string
+        error:
+          type: string
+        classification:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true

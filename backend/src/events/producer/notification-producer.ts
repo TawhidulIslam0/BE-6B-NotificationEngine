@@ -7,32 +7,23 @@ import { serializeEvent } from '../serialization/event-serializer.js';
 
 import type { EventEnvelope } from '../types/events.js';
 
-
 export class NotificationProducer {
-
   private readonly producer: Producer;
 
-
-  constructor(
-    producer = createProducer(),
-  ) {
+  constructor(producer = createProducer()) {
     this.producer = producer;
   }
-
 
   async connect(): Promise<void> {
     await this.producer.connect();
   }
 
-
   async disconnect(): Promise<void> {
     await this.producer.disconnect();
   }
 
-
   async healthCheck(): Promise<boolean> {
     try {
-
       await this.producer.send({
         topic: env.kafka.eventsTopic,
         acks: -1,
@@ -40,53 +31,38 @@ export class NotificationProducer {
           {
             key: 'health-check',
             value: JSON.stringify({
-              timestamp:new Date().toISOString(),
+              timestamp: new Date().toISOString(),
             }),
           },
         ],
       });
 
-
       return true;
-
     } catch {
-
       return false;
-
     }
   }
 
-
-
-  async publish(
-    event: EventEnvelope,
-  ): Promise<void> {
-
-
+  async publish(event: EventEnvelope): Promise<void> {
     const topic =
       event.priority === 'critical'
         ? env.kafka.criticalTopic
         : env.kafka.eventsTopic;
 
-
-    const serialized =
-      serializeEvent(event);
-
-
+    const serialized = serializeEvent(event);
 
     await this.producer.send({
-
       topic,
 
-      acks:-1,
+      acks: -1,
 
-      messages:[
+      messages: [
         {
-          key:event.user_id,
+          key: event.user_id,
 
-          value:serialized.value,
+          value: serialized.value,
 
-          headers:serialized.headers,
+          headers: serialized.headers,
         },
       ],
     });

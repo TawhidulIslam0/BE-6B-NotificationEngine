@@ -1,0 +1,192 @@
+﻿{
+  "info": {
+    "_postman_id": "8d8d7c1e-5a43-4e7c-9d42-1f3c6a2b8e11",
+    "name": "Notification Engine Internal API",
+    "description": "Postman collection for the BE-6B Notification Engine internal API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "userId",
+      "value": "user-123"
+    },
+    {
+      "key": "dlqId",
+      "value": "dlq-123"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/live"
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ready"
+          }
+        },
+        {
+          "name": "Provider Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health/providers"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Publish Notification Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt-postman-001\",\n  \"event_type\": \"user.registered\",\n  \"event_version\": \"1.0\",\n  \"occurred_at\": \"2026-09-22T17:00:00.000Z\",\n  \"user_id\": \"{{userId}}\",\n  \"correlation_id\": \"corr-postman-001\",\n  \"source\": \"postman\",\n  \"priority\": \"normal\",\n  \"payload\": {\n    \"email\": \"user@example.com\",\n    \"name\": \"Postman Test User\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/events"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Preferences",
+      "item": [
+        {
+          "name": "Get User Preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/users/{{userId}}/preferences"
+          }
+        },
+        {
+          "name": "Update User Preferences",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locale\": \"en\",\n  \"timezone\": \"America/New_York\",\n  \"channels\": {\n    \"email\": {\n      \"enabled\": true,\n      \"mode\": \"immediate\"\n    },\n    \"sms\": {\n      \"enabled\": false,\n      \"mode\": \"disabled\"\n    }\n  },\n  \"categories\": {\n    \"marketing\": false,\n    \"security\": true,\n    \"transactional\": true\n  }\n}"
+            },
+            "url": "{{baseUrl}}/users/{{userId}}/preferences"
+          }
+        }
+      ]
+    },
+    {
+      "name": "DLQ",
+      "item": [
+        {
+          "name": "List DLQ Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/dlq?limit=50&offset=0&classification=transient&status=pending"
+          }
+        },
+        {
+          "name": "Retry DLQ Record",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/dlq/{{dlqId}}/retry"
+          }
+        },
+        {
+          "name": "Discard DLQ Record",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/dlq/{{dlqId}}/discard"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Delivery Rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/delivery-rates?startDate=2026-09-01T00:00:00.000Z&endDate=2026-09-22T23:59:59.999Z&channel=email&eventType=user.registered&userId={{userId}}&priority=normal"
+          }
+        },
+        {
+          "name": "Channel Performance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/channel-performance?startDate=2026-09-01T00:00:00.000Z&endDate=2026-09-22T23:59:59.999Z&channel=email"
+          }
+        },
+        {
+          "name": "Opt-Out Trends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/opt-out-trends?startDate=2026-09-01T00:00:00.000Z&endDate=2026-09-22T23:59:59.999Z&channel=email"
+          }
+        },
+        {
+          "name": "Cost Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/analytics/costs?startDate=2026-09-01T00:00:00.000Z&endDate=2026-09-22T23:59:59.999Z&channel=email"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Metrics",
+      "item": [
+        {
+          "name": "Prometheus Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/metrics"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -63,9 +63,7 @@ const whatsappProvider = new WhatsAppProvider({
 
 const httpServer = createServer();
 
-const socketNotificationServer = new SocketNotificationServer(
-  httpServer,
-);
+const socketNotificationServer = new SocketNotificationServer(httpServer);
 
 const inAppProvider = new InAppProvider({
   providerName: 'socket-io-in-app',
@@ -84,32 +82,20 @@ const redisAnalyticsService = new RedisAnalyticsService(redis);
 
 const retryPolicyService = new RetryPolicyService();
 
-const retryScheduler = new RetryScheduler(
-  redis,
-  retryPolicyService,
-);
+const retryScheduler = new RetryScheduler(redis, retryPolicyService);
 
-const dlqDashboardRepository = new DlqDashboardRepository(
-  database,
-);
+const dlqDashboardRepository = new DlqDashboardRepository(database);
 
-const dlqConsumer = new DlqConsumer(
-  dlqDashboardRepository,
-  retryScheduler,
-);
+const dlqConsumer = new DlqConsumer(dlqDashboardRepository, retryScheduler);
 
 const dlqDashboardService = new DlqDashboardService(
   dlqDashboardRepository,
   dlqConsumer,
 );
 
-const analyticsRepository = new PostgresAnalyticsRepository(
-  database,
-);
+const analyticsRepository = new PostgresAnalyticsRepository(database);
 
-const analyticsApi = new AnalyticsApi(
-  analyticsRepository,
-);
+const analyticsApi = new AnalyticsApi(analyticsRepository);
 
 const prometheusMetricsService = new PrometheusMetricsService(
   redisAnalyticsService,
@@ -162,93 +148,59 @@ const start = async (): Promise<void> => {
     },
   });
 
-  httpServer.on(
-    'request',
-    application,
-  );
+  httpServer.on('request', application);
 
-  httpServer.listen(
-    port,
-    () => {
-      logger.info(
-        {
-          port,
-        },
-        'Notification Engine backend started',
-      );
+  httpServer.listen(port, () => {
+    logger.info(
+      {
+        port,
+      },
+      'Notification Engine backend started',
+    );
 
-      logger.info(
-        {
-          provider:
-            inAppProvider.constructor.name,
-        },
-        'In-app provider initialized',
-      );
+    logger.info(
+      {
+        provider: inAppProvider.constructor.name,
+      },
+      'In-app provider initialized',
+    );
 
-      logger.info(
-        {},
-        'DLQ dashboard initialized',
-      );
+    logger.info({}, 'DLQ dashboard initialized');
 
-      logger.info(
-        {},
-        'Retry scheduler initialized',
-      );
+    logger.info({}, 'Retry scheduler initialized');
 
-      logger.info(
-        {},
-        'Analytics API initialized',
-      );
+    logger.info({}, 'Analytics API initialized');
 
-      logger.info(
-        {
-          endpoint: '/metrics',
-        },
-        'Prometheus metrics initialized',
-      );
+    logger.info(
+      {
+        endpoint: '/metrics',
+      },
+      'Prometheus metrics initialized',
+    );
 
-      logger.info(
-        {},
-        'Kafka producer initialized',
-      );
+    logger.info({}, 'Kafka producer initialized');
 
-      logger.info(
-        {},
-        'Kafka consumer initialized',
-      );
-    },
-  );
+    logger.info({}, 'Kafka consumer initialized');
+  });
 
-  void notificationConsumer.run(
-    async (result) => {
-      logger.info(
-        {
-          correlationId:
-            result.event.correlation_id,
-          eventId:
-            result.event.event_id,
-          eventType:
-            result.event.event_type,
-          userId:
-            result.event.user_id,
-          priority:
-            result.event.priority,
-          duplicate:
-            result.duplicate,
-          digestQueued:
-            result.digestQueued ?? false,
-          routing:
-            result.routing,
-        },
-        'Notification event processed',
-      );
-    },
-  );
+  void notificationConsumer.run(async (result) => {
+    logger.info(
+      {
+        correlationId: result.event.correlation_id,
+        eventId: result.event.event_id,
+        eventType: result.event.event_type,
+        userId: result.event.user_id,
+        priority: result.event.priority,
+        duplicate: result.duplicate,
+        digestQueued: result.digestQueued ?? false,
+        routing: result.routing,
+      },
+      'Notification event processed',
+    );
+  });
 };
 
-const shutdown = async (
-  signal: string,
-): Promise<void> => {
+const shutdown = async (signal: string): Promise<void> => {
   if (shuttingDown) {
     return;
   }
@@ -262,17 +214,11 @@ const shutdown = async (
     'Graceful shutdown started',
   );
 
-  const timeout = setTimeout(
-    () => {
-      logger.error(
-        {},
-        'Shutdown timeout exceeded',
-      );
+  const timeout = setTimeout(() => {
+    logger.error({}, 'Shutdown timeout exceeded');
 
-      process.exit(1);
-    },
-    15000,
-  );
+    process.exit(1);
+  }, 15000);
 
   try {
     httpServer.close();
@@ -289,10 +235,7 @@ const shutdown = async (
 
     clearTimeout(timeout);
 
-    logger.info(
-      {},
-      'Graceful shutdown completed',
-    );
+    logger.info({}, 'Graceful shutdown completed');
 
     process.exit(0);
   } catch (error) {
@@ -309,29 +252,21 @@ const shutdown = async (
   }
 };
 
-process.on(
-  'SIGINT',
-  () => {
-    void shutdown('SIGINT');
-  },
-);
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
+});
 
-process.on(
-  'SIGTERM',
-  () => {
-    void shutdown('SIGTERM');
-  },
-);
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
+});
 
-void start().catch(
-  (error: unknown) => {
-    logger.error(
-      {
-        error,
-      },
-      'Notification Engine failed to start',
-    );
+void start().catch((error: unknown) => {
+  logger.error(
+    {
+      error,
+    },
+    'Notification Engine failed to start',
+  );
 
-    process.exitCode = 1;
-  },
-);
+  process.exitCode = 1;
+});

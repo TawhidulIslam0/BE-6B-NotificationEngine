@@ -1,7 +1,4 @@
-export type ErrorClassification =
-  | 'validation'
-  | 'transient'
-  | 'permanent';
+export type ErrorClassification = 'validation' | 'transient' | 'permanent';
 
 export class ApplicationError extends Error {
   public readonly classification: ErrorClassification;
@@ -24,48 +21,24 @@ export class ApplicationError extends Error {
 }
 
 export class ValidationError extends ApplicationError {
-  constructor(
-    message: string,
-    details?: unknown,
-  ) {
-    super(
-      message,
-      'validation',
-      400,
-      details,
-    );
+  constructor(message: string, details?: unknown) {
+    super(message, 'validation', 400, details);
 
     this.name = 'ValidationError';
   }
 }
 
 export class TransientError extends ApplicationError {
-  constructor(
-    message: string,
-    details?: unknown,
-  ) {
-    super(
-      message,
-      'transient',
-      503,
-      details,
-    );
+  constructor(message: string, details?: unknown) {
+    super(message, 'transient', 503, details);
 
     this.name = 'TransientError';
   }
 }
 
 export class PermanentError extends ApplicationError {
-  constructor(
-    message: string,
-    details?: unknown,
-  ) {
-    super(
-      message,
-      'permanent',
-      500,
-      details,
-    );
+  constructor(message: string, details?: unknown) {
+    super(message, 'permanent', 500, details);
 
     this.name = 'PermanentError';
   }

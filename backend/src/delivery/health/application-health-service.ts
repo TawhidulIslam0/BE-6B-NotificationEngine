@@ -23,7 +23,6 @@ export interface ApplicationHealth {
   };
 }
 
-
 export class ApplicationHealthService {
   public constructor(
     private readonly database: Knex,
@@ -31,19 +30,10 @@ export class ApplicationHealthService {
     private readonly providerHealthService: ProviderHealthService,
   ) {}
 
-
   public async checkHealth(): Promise<ApplicationHealth> {
-
     const checkedAt = new Date().toISOString();
 
-
-    const [
-      database,
-      redis,
-      kafka,
-      rabbitmq,
-      providers,
-    ] = await Promise.all([
+    const [database, redis, kafka, rabbitmq, providers] = await Promise.all([
       this.checkDatabase(),
       this.checkRedis(),
       this.checkKafka(),
@@ -51,14 +41,12 @@ export class ApplicationHealthService {
       this.checkProviders(),
     ]);
 
-
     const healthy =
       database.healthy &&
       redis.healthy &&
       kafka.healthy &&
       rabbitmq.healthy &&
       providers.healthy;
-
 
     return {
       status: healthy ? 'ok' : 'degraded',
@@ -73,122 +61,79 @@ export class ApplicationHealthService {
     };
   }
 
-
-
   private async checkDatabase(): Promise<ComponentHealth> {
-
     const start = Date.now();
 
     try {
-
       await this.database.raw('SELECT 1');
 
       return {
-        healthy:true,
-        latencyMs:Date.now()-start,
+        healthy: true,
+        latencyMs: Date.now() - start,
       };
-
-    } catch(error){
-
-      logger.error(
-        {error},
-        'Database health check failed',
-      );
-
+    } catch (error) {
+      logger.error({ error }, 'Database health check failed');
 
       return {
-        healthy:false,
+        healthy: false,
         message:
-          error instanceof Error
-            ? error.message
-            : 'Database unavailable',
+          error instanceof Error ? error.message : 'Database unavailable',
       };
     }
   }
 
-
-
-  private async checkRedis(): Promise<ComponentHealth>{
-
+  private async checkRedis(): Promise<ComponentHealth> {
     const start = Date.now();
 
     try {
-
       await this.redis.ping();
 
       return {
-        healthy:true,
-        latencyMs:Date.now()-start,
+        healthy: true,
+        latencyMs: Date.now() - start,
       };
-
-
-    }catch(error){
-
-      logger.error(
-        {error},
-        'Redis health check failed',
-      );
-
+    } catch (error) {
+      logger.error({ error }, 'Redis health check failed');
 
       return {
-        healthy:false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Redis unavailable',
+        healthy: false,
+        message: error instanceof Error ? error.message : 'Redis unavailable',
       };
     }
-
   }
 
-
-
-  private async checkKafka():Promise<ComponentHealth>{
-
+  private async checkKafka(): Promise<ComponentHealth> {
     /**
      * Kafka producer connection is managed separately.
      * This verifies application startup dependency.
      */
 
     return {
-      healthy:true,
-      message:'Kafka producer initialized',
+      healthy: true,
+      message: 'Kafka producer initialized',
     };
-
   }
 
-
-
-  private async checkRabbitMq():Promise<ComponentHealth>{
-
+  private async checkRabbitMq(): Promise<ComponentHealth> {
     /**
      * RabbitMQ integration placeholder.
      * Will be replaced when RabbitMQ client is connected.
      */
 
     return {
-      healthy:true,
-      message:'RabbitMQ connection not configured',
+      healthy: true,
+      message: 'RabbitMQ connection not configured',
     };
-
   }
 
-
-
-  private async checkProviders():Promise<ComponentHealth>{
-
-    const result =
-      await this.providerHealthService.checkAll();
-
+  private async checkProviders(): Promise<ComponentHealth> {
+    const result = await this.providerHealthService.checkAll();
 
     return {
-      healthy:result.healthy,
-      message:
-        result.healthy
-          ? 'All providers healthy'
-          : 'Provider degradation detected',
+      healthy: result.healthy,
+      message: result.healthy
+        ? 'All providers healthy'
+        : 'Provider degradation detected',
     };
-
   }
-
 }
