@@ -28,9 +28,7 @@ import { ComplianceAuditService } from '../../src/compliance/compliance-audit.js
 import { ConsentService } from '../../src/compliance/consent-service.js';
 import { DndRegistryService } from '../../src/compliance/dnd-registry.js';
 import { SmsDispatcher } from '../../src/delivery/sms-dispatcher.js';
-import type {
-  SmsProvider,
-} from '../../src/delivery/types.js';
+import type { SmsProvider } from '../../src/delivery/types.js';
 import {
   InMemoryPreferenceCache,
   InMemoryPreferenceStore,
@@ -434,12 +432,8 @@ describe('Notification Engine end-to-end flow', () => {
       }),
     });
 
-    const pushProvider = createControlledProvider(
-      'preference-push-provider',
-    );
-    const emailProvider = createControlledProvider(
-      'preference-email-provider',
-    );
+    const pushProvider = createControlledProvider('preference-push-provider');
+    const emailProvider = createControlledProvider('preference-email-provider');
 
     const providerConfigs = new Map<'email' | 'push', ProviderFailoverConfig>([
       [

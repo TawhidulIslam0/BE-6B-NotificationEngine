@@ -6,6 +6,7 @@ import express, {
   type Request,
   type Response,
 } from 'express';
+import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { parse } from 'yaml';
 
@@ -48,6 +49,52 @@ export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
 
   app.use(express.json());
+
+  /**
+   * Public API rate limiting.
+   *
+   * Health probes, Swagger UI, and Prometheus metrics are intentionally
+   * excluded because infrastructure monitoring should not consume API
+   * request quota.
+   */
+  const publicApiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      status: 'error',
+      message: 'Too many requests. Please try again later.',
+    },
+    skip: (request) =>
+      request.path === '/live' ||
+      request.path === '/health' ||
+      request.path === '/ready' ||
+      request.path === '/health/providers' ||
+      request.path === '/metrics' ||
+      request.path.startsWith('/api-docs'),
+  });
+
+  app.use(publicApiLimiter);
+
+  /**
+   * Stricter event-ingestion rate limit.
+   *
+   * Event publishing is the highest-volume public endpoint, so it receives
+   * its own per-IP limit in addition to the global public API limit.
+   */
+  const eventIngestionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      status: 'error',
+      message: 'Event ingestion rate limit exceeded. Please try again later.',
+    },
+  });
+
+  app.use('/api/v1/events', eventIngestionLimiter);
 
   /**
    * Swagger UI

@@ -78,4 +78,51 @@ describe('User preference REST API', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();
   });
+
+  it('rejects unknown fields in the preference payload', async () => {
+    const app = createTestApp();
+
+    const response = await request(app)
+      .put('/users/security-test-1/preferences')
+      .send({
+        locale: 'en',
+        maliciousField: "'; DROP TABLE users; --",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Invalid preference payload');
+  });
+
+  it('rejects invalid nested channel preference data', async () => {
+    const app = createTestApp();
+
+    const response = await request(app)
+      .put('/users/security-test-2/preferences')
+      .send({
+        channels: {
+          email: {
+            enabled: 'true',
+            mode: 'immediate',
+          },
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Invalid preference payload');
+  });
+
+  it('treats SQL-like timezone input as data rather than executable SQL', async () => {
+    const app = createTestApp();
+
+    const sqlLikeValue = "'; DROP TABLE users; --";
+
+    const response = await request(app)
+      .put('/users/security-test-3/preferences')
+      .send({
+        timezone: sqlLikeValue,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.timezone).toBe(sqlLikeValue);
+  });
 });

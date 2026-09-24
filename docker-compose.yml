@@ -1,4 +1,52 @@
 services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notification-engine-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: notification_engine
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:29092
+      RABBITMQ_URL: amqp://notification_user:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/live || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
   postgres:
     image: postgres:15
     container_name: notification-engine-postgres
@@ -6,16 +54,29 @@ services:
     environment:
       POSTGRES_DB: notification_engine
       POSTGRES_USER: notification_user
-      POSTGRES_PASSWORD: change_me
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_engine"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U notification_user -d notification_engine"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
   redis:
     image: redis:7
@@ -31,6 +92,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
 
   kafka:
     image: confluentinc/cp-kafka:7.8.0
@@ -43,20 +113,16 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-
       KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -69,6 +135,14 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
 
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -76,7 +150,7 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: notification_user
-      RABBITMQ_DEFAULT_PASS: change_me
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
       RABBITMQ_DEFAULT_VHOST: /
     ports:
       - "5672:5672"
@@ -88,6 +162,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
 volumes:
   postgres_data:

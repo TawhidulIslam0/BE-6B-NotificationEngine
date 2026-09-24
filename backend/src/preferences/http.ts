@@ -1,5 +1,6 @@
 import type { PreferencePatch } from './types.js';
 import type { PreferenceService } from './service.js';
+import { preferencePatchSchema } from './validation.js';
 
 export interface HttpRequest {
   params: { id?: string };
@@ -47,8 +48,19 @@ export function createPreferenceHandlers(service: PreferenceService) {
       response: HttpResponse,
     ): Promise<void> => {
       try {
-        const patch = request.body as PreferencePatch;
+        const parsed = preferencePatchSchema.safeParse(request.body);
+
+        if (!parsed.success) {
+          response.status(400).json({
+            error: 'Invalid preference payload',
+            details: parsed.error.issues,
+          });
+          return;
+        }
+
+        const patch = parsed.data as PreferencePatch;
         const preferences = await service.update(requireUserId(request), patch);
+
         response.json(preferences);
       } catch (error) {
         response.status(400).json({
