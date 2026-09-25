@@ -18,9 +18,17 @@ jobs:
     name: Lint, Test, Coverage, Security, Build
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: backend
+    env:
+      NODE_ENV: test
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 15432
+      POSTGRES_DB: notification_engine
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: 127.0.0.1:9092
+      RABBITMQ_URL: amqp://notification_user:${{ secrets.RABBITMQ_PASSWORD }}@127.0.0.1:5672
 
     steps:
       - name: Checkout repository
@@ -31,10 +39,62 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Start infrastructure
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          docker compose up -d postgres redis kafka rabbitmq
+
+      - name: Wait for infrastructure
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          echo "Waiting for infrastructure services to become healthy..."
+
+          for i in {1..60}; do
+            postgres_status=$(docker inspect --format='{{.State.Health.Status}}' notification-engine-postgres 2>/dev/null || echo "missing")
+            redis_status=$(docker inspect --format='{{.State.Health.Status}}' notification-engine-redis 2>/dev/null || echo "missing")
+            kafka_status=$(docker inspect --format='{{.State.Health.Status}}' notification-engine-kafka 2>/dev/null || echo "missing")
+            rabbitmq_status=$(docker inspect --format='{{.State.Health.Status}}' notification-engine-rabbitmq 2>/dev/null || echo "missing")
+
+            echo "PostgreSQL: $postgres_status"
+            echo "Redis:      $redis_status"
+            echo "Kafka:      $kafka_status"
+            echo "RabbitMQ:   $rabbitmq_status"
+
+            if [ "$postgres_status" = "healthy" ] &&
+               [ "$redis_status" = "healthy" ] &&
+               [ "$kafka_status" = "healthy" ] &&
+               [ "$rabbitmq_status" = "healthy" ]; then
+              echo "All infrastructure services are healthy."
+              exit 0
+            fi
+
+            if [ "$postgres_status" = "unhealthy" ] ||
+               [ "$redis_status" = "unhealthy" ] ||
+               [ "$kafka_status" = "unhealthy" ] ||
+               [ "$rabbitmq_status" = "unhealthy" ]; then
+              echo "One or more infrastructure services became unhealthy."
+              docker compose ps
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          echo "Infrastructure services did not become healthy within the expected time."
+          docker compose ps
+          exit 1
+
+      - name: Run database migrations
+        run: npm run db:migrate
 
       - name: Security audit
         run: npm audit --audit-level=high
@@ -49,9 +109,35 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-coverage
-          path: backend/coverage
+          name: notification-engine-coverage
+          path: coverage
           if-no-files-found: warn
 
       - name: Build
         run: npm run build
+
+      - name: Show infrastructure status on failure
+        if: failure()
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          echo "=== Docker Compose status ==="
+          docker compose ps
+
+      - name: Show infrastructure logs on failure
+        if: failure()
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          echo "=== Docker Compose logs ==="
+          docker compose logs --no-color --tail=200
+
+      - name: Stop infrastructure
+        if: always()
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        run: |
+          docker compose down -v
