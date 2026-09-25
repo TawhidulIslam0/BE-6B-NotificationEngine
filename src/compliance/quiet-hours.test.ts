@@ -15,31 +15,31 @@ describe('Quiet hours service', () => {
   };
 
   it('detects overnight quiet hours', () => {
-    const date = new Date('2026-09-09T23:00:00');
+    const date = new Date('2026-09-09T23:00:00-04:00');
 
     expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(true);
   });
 
   it('detects morning outside quiet hours', () => {
-    const date = new Date('2026-09-09T10:00:00');
+    const date = new Date('2026-09-09T10:00:00-04:00');
 
     expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(false);
   });
 
   it('detects the exact start boundary', () => {
-    const date = new Date('2026-09-09T22:00:00');
+    const date = new Date('2026-09-09T22:00:00-04:00');
 
     expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(true);
   });
 
   it('detects the exact end boundary', () => {
-    const date = new Date('2026-09-09T07:00:00');
+    const date = new Date('2026-09-09T07:00:00-04:00');
 
     expect(service.isWithinQuietHours(date, quietHours).quiet).toBe(false);
   });
 
   it('does not enforce disabled quiet hours', () => {
-    const date = new Date('2026-09-09T23:00:00');
+    const date = new Date('2026-09-09T23:00:00-04:00');
 
     expect(
       service.isWithinQuietHours(date, {
@@ -59,7 +59,7 @@ describe('Quiet hours service', () => {
           title: 'Critical',
           body: 'Critical event',
           priority: 'critical',
-          createdAt: '2026-09-09T23:00:00',
+          createdAt: '2026-09-09T23:00:00-04:00',
         },
         quietHours,
       ),
@@ -76,7 +76,7 @@ describe('Quiet hours service', () => {
           title: 'Normal',
           body: 'Normal event',
           priority: 'normal',
-          createdAt: '2026-09-09T23:00:00',
+          createdAt: '2026-09-09T23:00:00-04:00',
         },
         quietHours,
       ),
