@@ -6,6 +6,7 @@ import express, {
   type Request,
   type Response,
 } from 'express';
+import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { parse } from 'yaml';
@@ -22,6 +23,7 @@ import type { DlqDashboardService } from './delivery/dlq/dlq-dashboard-service.j
 import type { AnalyticsApi } from './analytics/analytics-api.js';
 import type { PrometheusMetricsService } from './analytics/prometheus-metrics-service.js';
 import type { NotificationProducer } from './events/producer/notification-producer.js';
+
 import { createDlqDashboardRouter } from './delivery/dlq/dlq-dashboard-api.js';
 import { validateEvent } from './events/factory/event-factory.js';
 import { createCorrelationLogger } from './logging/correlation.js';
@@ -49,6 +51,39 @@ export interface AppDependencies {
 /** Creates the Express application and registers public, health, and management routes. */
 export function createApp(dependencies: AppDependencies = {}) {
   const app = express();
+
+  /*
+   * CORS
+   *
+   * Local frontend:
+   *   http://localhost:5173
+   *
+   * Production:
+   *   Set CORS_ORIGIN to the deployed frontend origin.
+   *
+   * Example:
+   *   CORS_ORIGIN=https://your-frontend.vercel.app
+   *
+   * Multiple origins can be supplied as a comma-separated list:
+   *   CORS_ORIGIN=http://localhost:5173,https://your-frontend.vercel.app
+   */
+  const configuredOrigins = process.env.CORS_ORIGIN
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const allowedOrigins =
+    configuredOrigins && configuredOrigins.length > 0
+      ? configuredOrigins
+      : ['http://localhost:5173'];
+
+  app.use(
+    cors({
+      origin: allowedOrigins,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    }),
+  );
 
   app.use(express.json());
 
@@ -161,7 +196,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       }
 
       if (dependencies.providerHealthService) {
-        const providers = await dependencies.providerHealthService.checkAll();
+        const providers =
+          await dependencies.providerHealthService.checkAll();
 
         checks.providers = providers.healthy;
       }
